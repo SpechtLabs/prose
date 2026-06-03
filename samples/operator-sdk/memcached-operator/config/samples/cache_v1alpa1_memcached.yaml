@@ -1,0 +1,12 @@
+apiVersion: cache.example.com/v1alpa1
+kind: Memcached
+metadata:
+  labels:
+    app.kubernetes.io/name: memcached
+    app.kubernetes.io/managed-by: kustomize
+  name: memcached-sample
+spec:
+  # Quantity of memcached instances
+  size: 3
+  # Image of the memcached pods
+  image: memcached:1.4.36
