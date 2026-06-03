@@ -8,7 +8,7 @@ Kubernetes operators that read like prose.
 prose.For[*v1alpha1.Foo](mgr).
     Owns(&appsv1.Deployment{}).
     Owns(&corev1.ConfigMap{}).
-    When(isPaused).Skip().
+    When("paused", isPaused).Skip().
     Describe("dependencies", func(g *prose.Group[*v1alpha1.Foo]) {
         g.Step("configmap", upsertConfigMap)
         g.Step("deployment", upsertDeployment)
@@ -37,7 +37,7 @@ Once you commit to that sentence, the rest of the design falls out of it. The tr
 
 1. **A reconcile is one observable transaction.** Every other decision is downstream of this sentence.
 2. **Steps describe what happened; the framework decides how it becomes telemetry.** Business logic sets fields and returns outcomes. It never logs, traces, or counts.
-3. **Linear and explicit beats clever and implicit.** Borrow Ginkgo's vocabulary, reject its engine. What runs, and when, is what you read.
+3. **Linear and explicit beats clever and implicit.** Borrow [Ginkgo](https://github.com/onsi/ginkgo)'s vocabulary, reject its engine. What runs, and when, is what you read.
 4. **Requeue is a result, not an error.** Backoff stays a first-class signal.
 5. **Observability is a boundary, not a sprinkle.** One wide event, fed once, emitted unmissably.
 6. **Every hard case has a clean door out.** The escape hatch is first-class.
@@ -85,7 +85,7 @@ A step returning an `error` is distinct from a step asking for a requeue. "No er
 
 ### Groups
 
-A **group** is a step that contains steps. `Describe`, `Context`, and `When` all construct groups; they differ only in whether they carry a predicate.
+A **group** is a step that contains steps. `Describe`, `Context`, and `When` all construct groups. `Describe` and `Context` are identical — `Context` is an alias, there only so a group can read as natural language — while `When` adds a predicate that gates the group.
 
 ```go
 Describe("dependencies", func(g *prose.Group[*v1alpha1.Foo]) {
@@ -97,16 +97,16 @@ Describe("dependencies", func(g *prose.Group[*v1alpha1.Foo]) {
 Groups exist for two reasons, and both are concrete:
 
 - **They structure spans.** A group is a parent span; its steps are child spans. Nesting depth in your code equals span nesting depth in your traces. Grouping is how you make a trace readable.
-- **They scope gating.** A `Context` or `When` group runs only if its predicate holds, so you can gate a whole cluster of steps on one condition instead of repeating the check.
+- **They scope gating.** A `When` group runs only if its predicate holds, so you can gate a whole cluster of steps on one condition instead of repeating the check.
 
 Grouping is **lexical and explicit**. There is no hidden tree-building phase and no reordering. Groups execute depth-first, in declaration order, every time. This deliberately borrows Ginkgo's _vocabulary_ (`Describe`/`Context`/`When`) while rejecting its _execution model_: there is no opaque ordering, no closure-registration indirection, and no panic-based control flow. What runs, and when, is exactly what you read top to bottom.
 
 ### Gates and predicates
 
-`When` and `Context` take a predicate over the object. A gate is a pure boolean question with no side effects and no requeue, which makes it the one place where a matcher algebra is a clean fit. `prose` ships an adapter for [Gomega](https://github.com/onsi/gomega) matchers that uses a non-panicking handler, so a failed match is simply `false`:
+`When` takes a contextual label and a predicate over the object. A gate is a pure boolean question with no side effects and no requeue, which makes it the one place where a matcher algebra is a clean fit. `prose` ships an adapter for [Gomega](https://github.com/onsi/gomega) matchers that uses a non-panicking handler, so a failed match is simply `false`:
 
 ```go
-Context("when scaled up",
+When("scaled up",
     prose.Match(gomega.HaveField("Spec.Replicas", gomega.BeNumerically(">", 0))),
     func(g *prose.Group[*v1alpha1.Foo]) {
         g.Step("status", syncStatus)
@@ -115,11 +115,11 @@ Context("when scaled up",
 
 You get the readable `HaveField`/`And`/`Or`/`WithTransform` predicate vocabulary, confined to the one place where "boolean with no control flow" is the correct semantics. Inside step bodies you write plain Go (never matchers) because that is where branching, requeue, and error handling live, and those must stay legible.
 
-`When(pred).Skip()` is sugar for the most common gate of all: pause, finalizing, and deletion-timestamp checks that every operator repeats.
+`When(label, pred).Skip()` is sugar for the most common gate of all: pause, finalizing, and deletion-timestamp checks that every operator repeats.
 
 ## Observability is the transaction boundary
 
-This is the part `prose` exists to get right. A reconcile produces **one** wide event, one structured record, not one log line per step.
+This is the part `prose` exists to get right. A reconcile produces **one** [wide event](https://loggingsucks.com/), one structured record, not one log line per step.
 
 ### Wide events (canonical log lines)
 
