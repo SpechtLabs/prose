@@ -125,7 +125,7 @@ This is the part `prose` exists to get right. A reconcile produces **one** [wide
 
 Steps contribute fields to an accumulating context via `rctx.Set(key, value)`. When the reconcile returns (success or failure) the framework emits exactly one structured log line containing every field, flattened with dotted keys that mirror your group nesting:
 
-```
+```text
 controller=foo namespace=team-a name=widget generation=7 result=requeue requeue_after=30s duration=412ms
   dependencies.configmap.duration=8ms  dependencies.configmap.outcome=continue
   dependencies.deployment.duration=190ms dependencies.deployment.outcome=continue dependencies.deployment.image=ghcr.io/...:v2
@@ -243,7 +243,7 @@ The type enforces the caution: a `DeferCleanup` function's error can only ever l
 
 The runner guarantees this order, so cleanup outcomes are always captured before emission:
 
-```
+```text
 run steps depth-first, in declaration order
   on step error:
     stop the pipeline

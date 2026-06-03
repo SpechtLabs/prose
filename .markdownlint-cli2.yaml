@@ -18,3 +18,6 @@ ignores:
   - ".git/**"
   - "vendor/**"
   - CHANGELOG.md
+  # Example operators are largely operator-sdk-generated; skip them here the same
+  # way .yamllint.yaml skips samples/.
+  - "samples/**"
