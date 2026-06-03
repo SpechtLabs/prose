@@ -266,6 +266,83 @@ A DSL that builds the whole reconciler is delightful for CRUD-shaped operators a
 
 The design test for `prose` is not "does the happy path read well" (it does). It is "can I express a `MapFunc` watch and a custom predicate without leaving the DSL." If every hard case has a clean door out, the DSL is a strict win.
 
+## One operator, end to end
+
+Nothing below belongs in a real cluster; a `Wormhole` has no business existing. It does put every piece of the vocabulary into one reconcile you can read top to bottom: a skip gate, nested groups with added context, a few `When`s, deferred cleanup on both the error and the always paths, and a deletion mode.
+
+```go
+prose.For[*v1alpha1.Wormhole](mgr).
+    Owns(&appsv1.Deployment{}).
+    Owns(&corev1.ConfigMap{}).
+    WithObservability(
+        prose.Otel(tracer),
+        prose.WideEvents(logger),
+        prose.Recorder(mgr.GetEventRecorderFor("wormhole")),
+    ).
+    When("paused", isPaused).Skip().
+    Describe("anchors", func(g *prose.Group[*v1alpha1.Wormhole]) {
+        g.Step("reserve-coordinates", reserveCoordinates)
+        g.Step("entry-anchor", upsertEntryAnchor)
+        g.Step("exit-anchor", upsertExitAnchor)
+    }).
+    Context("now that both ends exist", func(g *prose.Group[*v1alpha1.Wormhole]) {
+        g.Step("subspace-link", openSubspaceLink)
+
+        g.When("charged past the ignition threshold",
+            prose.Match(gomega.HaveField("Status.Charge", gomega.BeNumerically(">=", 88))),
+            func(g *prose.Group[*v1alpha1.Wormhole]) {
+                g.Step("open-tunnel", openTunnel)
+
+                g.When("downstream traffic is requested",
+                    prose.Match(gomega.HaveField("Spec.Throughput", gomega.BeNumerically(">", 0))),
+                    func(g *prose.Group[*v1alpha1.Wormhole]) {
+                        g.Step("route-traffic", routeTraffic)
+                    })
+            })
+    }).
+    Step("status", syncStatus).
+    Finalize("collapse", func(g *prose.Group[*v1alpha1.Wormhole]) {
+        g.Step("drain-traffic", drainTraffic)
+        g.Step("release-coordinates", releaseCoordinates)
+        // the framework removes the finalizer once this group succeeds
+    }).
+    Complete()
+```
+
+Two of those steps carry the cleanup primitives, and the gap between them is the entire reason the names differ:
+
+```go
+// reserveCoordinates claims a slot in an external registry. If a later anchor
+// step fails, the claim has to go back or the next reconcile leaks it. That is
+// DeferErrorCleanup: it runs only on the unwind path, only when something later errors.
+func reserveCoordinates(rctx *prose.Context[*v1alpha1.Wormhole]) (prose.Outcome, error) {
+    coord, err := subspace.Reserve(rctx.Object().Spec.Destination)
+    if err != nil {
+        return prose.Requeue, humane.Wrap(err, "reserve subspace coordinates",
+            "the subspace registry may be saturated; back off and retry")
+    }
+    rctx.Set("coordinates.id", coord.ID)
+    rctx.DeferErrorCleanup(func() error { return subspace.Release(coord) })
+    return prose.Continue, nil
+}
+
+// openSubspaceLink dials a connection scoped to exactly this reconcile. Closing
+// it has no effect any other reconcile can observe, so it is safe to close on
+// every pass. That is DeferCleanup: it always runs, success or failure.
+func openSubspaceLink(rctx *prose.Context[*v1alpha1.Wormhole]) (prose.Outcome, error) {
+    link, err := subspace.Dial(rctx.Context())
+    if err != nil {
+        return prose.Requeue, humane.Wrap(err, "dial the subspace link",
+            "check that the subspace relay is reachable from this cluster")
+    }
+    rctx.Set("link.session", link.SessionID())
+    rctx.DeferCleanup(func() error { return link.Close() })
+    return prose.Continue, nil
+}
+```
+
+Read the chain straight down and you have the whole story: skip while paused, anchor both ends (handing the coordinate back if anchoring fails), then once both ends exist open the tunnel when it is charged and route traffic when there is any to route. On delete, drain and release, and the finalizer drops once that group succeeds. One reconcile, one wide event, every branch on the page.
+
 ---
 
 _Part of [SpechtLabs](https://github.com/spechtlabs). Built on [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime)._
