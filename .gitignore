@@ -1,0 +1,2 @@
+# envtest control-plane binaries, downloaded by `mise run setup-envtest`
+/bin/

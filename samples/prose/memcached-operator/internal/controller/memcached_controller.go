@@ -26,7 +26,7 @@ import (
 	"reflect"
 
 	humane "github.com/sierrasoftworks/humane-errors-go"
-	"github.com/spechtlabs/prose"
+	"github.com/spechtlabs/prose/pkg/prose"
 	"go.opentelemetry.io/otel"
 
 	appsv1 "k8s.io/api/apps/v1"

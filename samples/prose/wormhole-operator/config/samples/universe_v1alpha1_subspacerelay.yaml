@@ -1,0 +1,17 @@
+apiVersion: universe.specht-labs.de/v1alpha1
+kind: SubspaceRelay
+metadata:
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+    app.kubernetes.io/managed-by: kustomize
+  # Cluster-scoped: every Wormhole in any namespace routes through this one relay
+  # by name. No namespace field, on purpose.
+  name: gateway-prime
+spec:
+  band: "C-137"
+  # Total throughput units the relay can carry. With the default applied set only
+  # voyager (throughput 60) is active, so consumed (60) stays under this and the
+  # relay reports Online while voyager reaches the Routing phase. To watch the
+  # Saturated path instead, re-enable wormhole-sample in kustomization.yaml
+  # (70 + 60 = 130 > 100) or lower this bandwidth below 60.
+  bandwidth: 100

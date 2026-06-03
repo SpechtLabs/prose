@@ -1,3 +1,31 @@
 [tools]
 go = "latest"
 operator-sdk = "latest"
+
+[vars]
+envtest_k8s_version = "1.33.0"
+setup_envtest = "go run sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21"
+
+[tasks.fmt]
+description = "Format the code"
+run = "go fmt ./..."
+
+[tasks.vet]
+description = "Run go vet"
+run = "go vet ./..."
+
+[tasks.test]
+description = "Run the fast unit tests (no apiserver needed)"
+depends = ["fmt", "vet"]
+run = "go test ./..."
+
+[tasks.setup-envtest]
+description = "Download the envtest control-plane binaries"
+run = "{{vars.setup_envtest}} use {{vars.envtest_k8s_version}} --bin-dir {{config_root}}/bin"
+
+[tasks.test-envtest]
+description = "Run the integration tests against a real apiserver"
+run = '''
+KUBEBUILDER_ASSETS="$({{vars.setup_envtest}} use {{vars.envtest_k8s_version}} --bin-dir {{config_root}}/bin -p path)" \
+  go test -tags envtest ./...
+'''
