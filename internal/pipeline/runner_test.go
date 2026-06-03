@@ -114,7 +114,7 @@ var _ = ginkgo.Describe("the runner", func() {
 		res, err := r.Reconcile(context.Background(), reqFor("ns", "widget"))
 
 		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeTrue())
+		Expect(res).To(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	ginkgo.It("propagates a step error, stops the pipeline, and still emits", func() {

@@ -1,2 +1,9 @@
 # envtest control-plane binaries, downloaded by `mise run setup-envtest`
 /bin/
+
+# goreleaser output
+/dist/
+
+# test coverage
+coverage.txt
+cover.out

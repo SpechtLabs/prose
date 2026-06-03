@@ -1,0 +1,61 @@
+# The generic core: step/group tree, executor, Context, Builder, runner.
+pipeline:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'internal/pipeline/**'
+
+# The non-generic telemetry sink: wide events, spans, metrics, errors.
+observability:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'internal/observability/**'
+
+# The public facade and matcher adapter.
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pkg/prose/**'
+
+# Example operators that exercise the framework.
+samples:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'samples/**'
+
+# Tests
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*_test.go'
+          - '**/testdata/**'
+
+# Documentation (Markdown files)
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+
+# Build, CI, and release plumbing
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'mise.toml'
+          - '.goreleaser.yaml'
+          - '.release-please-config.json'
+          - '.release-please-manifest.json'
+          - '.golangci.yml'
+          - 'go.mod'
+          - 'go.sum'
+
+# Add 'enhancement' label to any PR where the head branch name starts with `feat`
+enhancement:
+  - head-branch:
+      - '^feat'
+      - '^feature'
+
+# Add 'bug' label to any PR where the head branch name starts with `bug` or `fix`
+bug:
+  - head-branch:
+      - '^bug'
+      - '^fix'

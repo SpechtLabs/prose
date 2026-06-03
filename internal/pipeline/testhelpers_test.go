@@ -1,8 +1,6 @@
 package pipeline
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -15,7 +13,6 @@ import (
 // about, so it stays a valid trace.Span without reimplementing the whole surface.
 type recSpan struct {
 	tracenoop.Span
-	name   string
 	attrs  []attribute.KeyValue
 	errs   []error
 	status codes.Code
@@ -34,18 +31,6 @@ func (s *recSpan) attr(key string) (attribute.Value, bool) {
 		}
 	}
 	return attribute.Value{}, false
-}
-
-// recTracer hands out recSpans and remembers them in start order.
-type recTracer struct {
-	tracenoop.Tracer
-	spans []*recSpan
-}
-
-func (t *recTracer) Start(ctx context.Context, name string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
-	s := &recSpan{name: name}
-	t.spans = append(t.spans, s)
-	return ctx, s
 }
 
 // logLine is one captured log emission with its accumulated WithValues fields.

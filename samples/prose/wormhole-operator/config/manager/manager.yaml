@@ -26,6 +26,11 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        # Grafana Alloy annotation autodiscovery scrapes this pod's HTTP /metrics.
+        k8s.grafana.com/scrape: "true"
+        k8s.grafana.com/metrics.portNumber: "8080"
+        k8s.grafana.com/metrics.path: "/metrics"
+        k8s.grafana.com/metrics.scheme: "http"
       labels:
         control-plane: controller-manager
         app.kubernetes.io/name: wormhole-operator
@@ -65,7 +70,31 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
-        ports: []
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # OTLP endpoint of the cluster's Grafana Alloy receiver. cmd/main.go only
+          # installs the trace exporter when this is set, so removing it keeps the
+          # operator quiet/local without a code change.
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4318
+          - name: OTEL_SERVICE_NAME
+            value: wormhole-operator
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
+        ports:
+          - name: metrics
+            containerPort: 8080
+            protocol: TCP
+          - name: health
+            containerPort: 8081
+            protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

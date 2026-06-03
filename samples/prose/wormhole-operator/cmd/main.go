@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -25,6 +26,13 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -52,6 +60,45 @@ func init() {
 
 	utilruntime.Must(universev1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+}
+
+// setupTracing installs an OpenTelemetry tracer provider that exports spans over
+// OTLP, but only when an OTLP endpoint is configured (OTEL_EXPORTER_OTLP_ENDPOINT
+// or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT). Without one the global no-op tracer stays
+// in place, so `make run` locally never tries to reach a collector. The exporter
+// reads all OTEL_* environment variables, so endpoint, protocol, and resource
+// attributes come from the Deployment rather than being hardcoded. prose needs no
+// wiring beyond this: prose.Otel(otel.Tracer(...)) uses the global provider set here.
+func setupTracing(ctx context.Context) (func(context.Context) error, error) {
+	noop := func(context.Context) error { return nil }
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" && os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") == "" {
+		return noop, nil
+	}
+
+	exporter, err := otlptracehttp.New(ctx)
+	if err != nil {
+		return noop, err
+	}
+
+	res, err := resource.New(ctx,
+		resource.WithAttributes(semconv.ServiceName("wormhole-operator")),
+		resource.WithTelemetrySDK(),
+		resource.WithProcess(),
+		resource.WithFromEnv(), // OTEL_SERVICE_NAME / OTEL_RESOURCE_ATTRIBUTES win over the default above
+	)
+	if err != nil {
+		return noop, err
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{}, propagation.Baggage{},
+	))
+	return tp.Shutdown, nil
 }
 
 // nolint:gocyclo
@@ -88,6 +135,20 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// One signal context for the whole process: it drives both the tracer flush on
+	// shutdown and the manager. SetupSignalHandler must be called exactly once.
+	signalCtx := ctrl.SetupSignalHandler()
+	shutdownTracing, err := setupTracing(signalCtx)
+	if err != nil {
+		setupLog.Error(err, "unable to set up tracing")
+		os.Exit(1)
+	}
+	defer func() {
+		if err := shutdownTracing(context.Background()); err != nil {
+			setupLog.Error(err, "error shutting down tracer provider")
+		}
+	}()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -242,7 +303,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(signalCtx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

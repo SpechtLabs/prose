@@ -1,6 +1,15 @@
 [tools]
-go = "latest"
-operator-sdk = "latest"
+# Toolchain pinned for reproducible local and CI builds. go is the build
+# toolchain (>= the go.mod language floor of 1.25); the rest match the versions
+# used across the other SpechtLabs repos to keep tooling consistent.
+go = "1.26.3"
+golangci-lint = "2.12.2"
+goreleaser = "2.16.0"
+cosign = "3.0.6"
+# Sample operators (envtest + Kind e2e) need these.
+operator-sdk = "1.42.2"
+kind = "0.31.0"
+kubectl = "1.36.1"
 
 [vars]
 envtest_k8s_version = "1.33.0"
@@ -13,6 +22,10 @@ run = "go fmt ./..."
 [tasks.vet]
 description = "Run go vet"
 run = "go vet ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run ./..."
 
 [tasks.test]
 description = "Run the fast unit tests (no apiserver needed)"

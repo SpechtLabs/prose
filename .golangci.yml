@@ -1,0 +1,50 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: comment-spacings
+        - name: import-shadowing
+    staticcheck:
+      checks:
+        - all
+        # QF1008: "could remove embedded field from selector" is a stylistic
+        # quickfix, not a correctness issue.
+        - -QF1008
+  exclusions:
+    generated: lax
+    rules:
+      # Test code routinely ignores errors from helpers and setup calls, and
+      # test helpers often take parameters that happen to be called with one value.
+      - linters:
+          - errcheck
+          - unparam
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

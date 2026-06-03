@@ -1,0 +1,99 @@
+name: Publish Example Images
+
+# Builds the prose example operators and publishes each to its own GHCR package
+# (ghcr.io/<owner>/prose/<example>). The examples depend on the framework via a
+# local `replace`, so images are built from the repo root with samples/prose/Dockerfile.
+# Pull requests build (and exercise the multi-arch cross-compile) but do not push.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+    paths:
+      - "pkg/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "samples/prose/**"
+      - ".github/workflows/publish-examples.yaml"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths:
+      - "pkg/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - "samples/prose/**"
+      - ".github/workflows/publish-examples.yaml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    name: Image (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        sample:
+          - memcached-operator
+          - wormhole-operator
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Push only for real refs (main / tags). PRs from forks can't push and
+      # GITHUB_TOKEN is read-only there, so PRs build-only to validate the image.
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # metadata-action lowercases the image name (SpechtLabs -> spechtlabs).
+          images: ghcr.io/${{ github.repository_owner }}/prose/${{ matrix.sample }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: samples/prose/Dockerfile
+          build-args: |
+            EXAMPLE=${{ matrix.sample }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.sample }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.sample }}

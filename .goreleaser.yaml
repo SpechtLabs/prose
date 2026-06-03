@@ -1,0 +1,50 @@
+# GoReleaser configuration for prose.
+#
+# prose is a library, not an application: there are no binaries or container
+# images to build. GoReleaser's job here is to attach a reproducible source
+# archive and signed checksums to the GitHub release that release-please creates,
+# keeping the release pipeline identical in shape to the other SpechtLabs repos.
+# The changelog and release notes are owned by release-please, so they are
+# disabled here.
+version: 2
+
+project_name: prose
+
+before:
+  hooks:
+    - go mod tidy
+
+# No binaries: prose is imported as a module, never built into an executable.
+builds:
+  - skip: true
+
+# Ship the source as a reproducible tarball.
+source:
+  enabled: true
+
+checksum:
+  name_template: "checksums.txt"
+
+# release-please writes the changelog and the GitHub release notes.
+changelog:
+  disable: true
+
+# Keyless cosign signature over the checksums (which cover the source archive),
+# matching the signing convention used across SpechtLabs releases.
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - --yes
+      - --oidc-issuer=https://token.actions.githubusercontent.com
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+    artifacts: checksum
+
+# release-please has already created the GitHub release for the tag; append the
+# source archive, checksums, and signatures to it rather than recreating it.
+release:
+  mode: append

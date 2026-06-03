@@ -1,0 +1,136 @@
+name: CI Build & Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - .github/workflows/release.yaml
+      - .github/workflows/validations.yaml
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # mise installs the whole toolchain (Go, golangci-lint, ...) from mise.toml
+      # and caches it; this is the single dependency-install mechanism.
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+
+      - name: Cache Go modules and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: golangci-lint
+        run: mise run lint
+
+      - name: gofmt check
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "The following files are not gofmt-ed:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+
+      - name: Cache Go modules and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Unit tests
+        run: go test -race -cover -covermode=atomic -coverprofile=coverage.txt ./...
+
+      - name: Integration tests (envtest)
+        run: mise run test-envtest
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  samples:
+    name: Sample (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    # The samples depend on the framework via a local replace directive, so this
+    # matrix catches framework changes that would break a real operator.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        sample:
+          - memcached-operator
+          - wormhole-operator
+    defaults:
+      run:
+        working-directory: samples/prose/${{ matrix.sample }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+        with:
+          cache: true
+
+      - name: Cache Go modules and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-samples-${{ matrix.sample }}-${{ hashFiles(format('samples/prose/{0}/go.sum', matrix.sample)) }}
+          restore-keys: |
+            ${{ runner.os }}-go-samples-${{ matrix.sample }}-
+            ${{ runner.os }}-go-
+
+      - name: Unit tests (envtest)
+        run: make test
+
+      - name: End-to-end tests (Kind)
+        run: make test-e2e
