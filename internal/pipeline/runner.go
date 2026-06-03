@@ -70,11 +70,20 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 	// every group and step nests beneath it: one reconcile, one trace, mirroring the
 	// single wide event. Without this, each top-level group or step would start its
 	// own parentless span and a single reconcile would shatter into several traces.
-	spanCtx, rootSpan := r.sink.Tracer().Start(ctx, "reconcile", trace.WithAttributes(
-		attribute.String("controller", r.controller),
-		attribute.String("namespace", req.Namespace),
-		attribute.String("name", req.Name),
-	))
+	//
+	// SpanKindServer marks the reconcile as the controller's entry point — handling
+	// a request taken off the workqueue. That is what the span-metrics generator
+	// records into per-service RED (rate/errors/duration), so reconciles show up in
+	// Application Observability's service view, not only in raw trace search. An
+	// INTERNAL root span is excluded from those metrics and stays invisible there.
+	spanCtx, rootSpan := r.sink.Tracer().Start(ctx, "reconcile",
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(
+			attribute.String("controller", r.controller),
+			attribute.String("namespace", req.Namespace),
+			attribute.String("name", req.Name),
+		),
+	)
 	rctx.ctx = spanCtx
 	rctx.span = rootSpan
 

@@ -8,6 +8,7 @@ import (
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -63,6 +64,7 @@ var _ = ginkgo.Describe("the runner trace", func() {
 
 		recon := byName["reconcile"]
 		Expect(recon.Parent().IsValid()).To(BeFalse(), "the reconcile span must be the trace root")
+		Expect(recon.SpanKind()).To(Equal(oteltrace.SpanKindServer), "the reconcile span must be SERVER so it feeds per-service RED span metrics")
 
 		// Every other span shares the root's trace and chains up to it.
 		traceID := recon.SpanContext().TraceID()
