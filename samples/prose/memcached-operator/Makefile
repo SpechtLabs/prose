@@ -167,8 +167,10 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
+# Built from the repo root: the example's go.mod has `replace => ../../..`, so the
+# framework must be inside the build context. EXAMPLE selects which sample to build.
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	cd ../../.. && $(CONTAINER_TOOL) build -f samples/prose/Dockerfile --build-arg EXAMPLE=$(notdir $(CURDIR)) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

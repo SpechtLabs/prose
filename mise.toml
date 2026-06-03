@@ -10,6 +10,7 @@ cosign = "3.0.6"
 operator-sdk = "1.42.2"
 kind = "0.31.0"
 kubectl = "1.36.1"
+bun = "latest"
 
 [vars]
 envtest_k8s_version = "1.33.0"
