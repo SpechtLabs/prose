@@ -6,6 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	humane "github.com/sierrasoftworks/humane-errors-go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,11 +66,28 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 
 	rctx := newContext[T](ctx, r.client, r.scheme, r.sink, r.controller, r.fieldOwner, obj)
 
+	// Open one root span for the whole reconcile and seed the context with it, so
+	// every group and step nests beneath it: one reconcile, one trace, mirroring the
+	// single wide event. Without this, each top-level group or step would start its
+	// own parentless span and a single reconcile would shatter into several traces.
+	spanCtx, rootSpan := r.sink.Tracer().Start(ctx, "reconcile", trace.WithAttributes(
+		attribute.String("controller", r.controller),
+		attribute.String("namespace", req.Namespace),
+		attribute.String("name", req.Name),
+	))
+	rctx.ctx = spanCtx
+	rctx.span = rootSpan
+
 	start := time.Now()
 	outcome := Continue
 	var rerr error
 
 	defer func() {
+		if rerr != nil {
+			rootSpan.RecordError(rerr)
+			rootSpan.SetStatus(codes.Error, rerr.Error())
+		}
+		rootSpan.End()
 		result, _ := translate(outcome, rerr)
 		r.emit(logger, rctx, outcome, rerr, result, time.Since(start))
 	}()

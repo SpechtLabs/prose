@@ -2,6 +2,16 @@
 
 Kubernetes operators that read like prose.
 
+[![CI Build & Test](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml/badge.svg)](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml)
+[![Documentation](https://github.com/SpechtLabs/prose/actions/workflows/docs-website.yaml/badge.svg)](https://github.com/SpechtLabs/prose/actions/workflows/docs-website.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/spechtlabs/prose/pkg/prose.svg)](https://pkg.go.dev/github.com/spechtlabs/prose/pkg/prose)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spechtlabs/prose)](https://goreportcard.com/report/github.com/spechtlabs/prose)
+[![Codecov](https://codecov.io/gh/SpechtLabs/prose/branch/main/graph/badge.svg)](https://codecov.io/gh/SpechtLabs/prose)
+[![Latest Release](https://img.shields.io/github/v/release/SpechtLabs/prose?sort=semver)](https://github.com/SpechtLabs/prose/releases)
+[![License](https://img.shields.io/github/license/SpechtLabs/prose)](./LICENSE)
+
+📖 **Narrative docs:** [tutorials, how-to guides, and explanation](./docs) &nbsp;·&nbsp; 🔎 **API reference:** [pkg.go.dev](https://pkg.go.dev/github.com/spechtlabs/prose/pkg/prose)
+
 `prose` is a thin DSL over [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) for building Kubernetes operators as a linear, observable sequence of steps. You describe _what_ a reconcile does as a series of named actions; `prose` handles the boilerplate around them (the `Get`, the requeue plumbing, the setup wiring) and gives you OpenTelemetry tracing, structured wide-event logging, Prometheus metrics, and Kubernetes events for free, without a single observability call in your business logic.
 
 ```go
