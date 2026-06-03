@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -175,6 +176,9 @@ func (rctx *Context[T]) runGroup(n *node[T]) (Outcome, error) {
 
 	out, err := rctx.run(n.children)
 
+	// Mirror the node outcome onto its span. The framework otherwise records outcome
+	// only into the wide event, so a span would carry no result of its own.
+	span.SetAttributes(attribute.String("prose.outcome", out.label()))
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -205,6 +209,7 @@ func (rctx *Context[T]) runStep(n *node[T]) (Outcome, error) {
 	if err != nil && isCancellation(rctx.ctx, err) {
 		rctx.fields.Set(stepPath+".outcome", aborted.label())
 		rctx.sink.Observe(rctx.controller, n.name, aborted.label(), dur)
+		span.SetAttributes(attribute.String("prose.outcome", aborted.label()))
 		span.End()
 		rctx.ctx, rctx.span, rctx.curStepPath = prevCtx, prevSpan, prevStep
 		return aborted, nil
@@ -212,6 +217,7 @@ func (rctx *Context[T]) runStep(n *node[T]) (Outcome, error) {
 
 	rctx.fields.Set(stepPath+".outcome", out.label())
 	rctx.sink.Observe(rctx.controller, n.name, out.label(), dur)
+	span.SetAttributes(attribute.String("prose.outcome", out.label()))
 
 	var framed error
 	if err != nil {

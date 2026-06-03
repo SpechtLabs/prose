@@ -92,6 +92,7 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 	var rerr error
 
 	defer func() {
+		rootSpan.SetAttributes(attribute.String("prose.outcome", outcome.label()))
 		if rerr != nil {
 			rootSpan.RecordError(rerr)
 			rootSpan.SetStatus(codes.Error, rerr.Error())

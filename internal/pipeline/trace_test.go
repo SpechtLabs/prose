@@ -74,5 +74,18 @@ var _ = ginkgo.Describe("the runner trace", func() {
 		Expect(byName["deps"].Parent().SpanID()).To(Equal(recon.SpanContext().SpanID()), "a top-level group nests under reconcile")
 		Expect(byName["status"].Parent().SpanID()).To(Equal(recon.SpanContext().SpanID()), "a top-level step nests under reconcile")
 		Expect(byName["child"].Parent().SpanID()).To(Equal(byName["deps"].SpanContext().SpanID()), "a step nests under its group")
+
+		// Every span carries its outcome as an attribute (parity with the wide event).
+		outcomeOf := func(s sdktrace.ReadOnlySpan) string {
+			for _, kv := range s.Attributes() {
+				if string(kv.Key) == "prose.outcome" {
+					return kv.Value.AsString()
+				}
+			}
+			return ""
+		}
+		Expect(outcomeOf(recon)).To(Equal("continue"), "the reconcile root carries the overall outcome")
+		Expect(outcomeOf(byName["deps"])).To(Equal("continue"), "a group carries its outcome")
+		Expect(outcomeOf(byName["status"])).To(Equal("continue"), "a step carries its outcome")
 	})
 })

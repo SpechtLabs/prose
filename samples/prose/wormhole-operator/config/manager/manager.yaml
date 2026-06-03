@@ -86,8 +86,12 @@ spec:
             value: http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4318
           - name: OTEL_SERVICE_NAME
             value: wormhole-operator
+          # service.namespace is what Application Observability keys the service
+          # entity on (the "wormhole-system/wormhole-operator" entity) and filters
+          # its Traces tab by. Without it our SDK traces don't match the entity, even
+          # though raw Tempo search finds them.
           - name: OTEL_RESOURCE_ATTRIBUTES
-            value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
+            value: service.namespace=$(POD_NAMESPACE),k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
         ports:
           - name: metrics
             containerPort: 8080
