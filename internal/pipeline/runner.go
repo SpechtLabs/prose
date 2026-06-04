@@ -76,7 +76,11 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 	// records into per-service RED (rate/errors/duration), so reconciles show up in
 	// Application Observability's service view, not only in raw trace search. An
 	// INTERNAL root span is excluded from those metrics and stays invisible there.
-	spanCtx, rootSpan := r.sink.Tracer().Start(ctx, "reconcile",
+	// Name the root span per controller (reconcile.<kind>, e.g. reconcile.wormhole)
+	// so an operator with several reconcilers is distinguishable in the trace list
+	// and gets one span-metric series (RED) per controller, not a single merged
+	// "reconcile". The controller is also kept as an attribute for filtering.
+	spanCtx, rootSpan := r.sink.Tracer().Start(ctx, "reconcile."+r.controller,
 		trace.WithSpanKind(trace.SpanKindServer),
 		trace.WithAttributes(
 			attribute.String("controller", r.controller),

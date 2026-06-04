@@ -57,12 +57,12 @@ var _ = ginkgo.Describe("the runner trace", func() {
 		for _, s := range spans {
 			byName[s.Name()] = s
 		}
-		Expect(byName).To(HaveKey("reconcile"))
+		Expect(byName).To(HaveKey("reconcile.configmap"))
 		Expect(byName).To(HaveKey("deps"))
 		Expect(byName).To(HaveKey("child"))
 		Expect(byName).To(HaveKey("status"))
 
-		recon := byName["reconcile"]
+		recon := byName["reconcile.configmap"]
 		Expect(recon.Parent().IsValid()).To(BeFalse(), "the reconcile span must be the trace root")
 		Expect(recon.SpanKind()).To(Equal(oteltrace.SpanKindServer), "the reconcile span must be SERVER so it feeds per-service RED span metrics")
 
