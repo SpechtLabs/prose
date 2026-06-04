@@ -4,7 +4,7 @@ resources:
   - universe_v1alpha1_subspacerelay.yaml
   - demo_namespaces.yaml
   # A wormhole in the default namespace and a standalone anchor.
-  #- universe_v1alpha1_wormhole.yaml
+  - universe_v1alpha1_wormhole.yaml
   - universe_v1alpha1_anchor.yaml
   # Cross-namespace wormholes: voyager (milkyway) and a paused probe (andromeda).
   - demo_wormholes.yaml

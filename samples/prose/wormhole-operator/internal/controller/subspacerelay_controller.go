@@ -1,13 +1,20 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/onsi/gomega"
 	humane "github.com/sierrasoftworks/humane-errors-go"
 	"github.com/spechtlabs/prose/pkg/prose"
 	"go.opentelemetry.io/otel"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	universev1alpha1 "example.com/prose/wormhole-operator/api/v1alpha1"
 )
@@ -15,6 +22,7 @@ import (
 // +kubebuilder:rbac:groups=universe.specht-labs.de,resources=subspacerelays,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=universe.specht-labs.de,resources=subspacerelays/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=universe.specht-labs.de,resources=subspacerelays/finalizers,verbs=update
+// +kubebuilder:rbac:groups=universe.specht-labs.de,resources=wormholes,verbs=get;list;watch
 
 // SetupSubspaceRelayWithManager builds the SubspaceRelay pipeline. The relay
 // aggregates every Wormhole that references it (cluster-wide), and reports whether
@@ -30,6 +38,14 @@ func SetupSubspaceRelayWithManager(mgr ctrl.Manager) error {
 			prose.WideEvents(mgr.GetLogger().WithName("subspacerelay")),
 			prose.Recorder(mgr.GetEventRecorderFor("subspacerelay")),
 		).
+		// Re-survey this relay whenever a Wormhole that points at it is created,
+		// changes spec (throughput/relayRef), or is deleted, so saturation reflects
+		// the current set of connected wormholes instead of a stale snapshot. The
+		// predicate drops wormhole status-only churn (charge ticks) so we only
+		// re-survey on changes that actually move consumed bandwidth.
+		Watches(&universev1alpha1.Wormhole{},
+			handler.EnqueueRequestsFromMapFunc(mapWormholeToRelay),
+			builder.WithPredicates(prose.IgnoreStatusOnlyUpdates())).
 		Step("survey", surveyConnectedWormholes).
 		When("saturated",
 			prose.Match[*universev1alpha1.SubspaceRelay](gomega.HaveField("Status.Saturated", gomega.BeTrue())),
@@ -40,6 +56,17 @@ func SetupSubspaceRelayWithManager(mgr ctrl.Manager) error {
 		Complete()
 
 	return err
+}
+
+// mapWormholeToRelay maps a changed Wormhole to a reconcile of the relay it routes
+// through, so the relay re-surveys its connected wormholes. SubspaceRelay is
+// cluster-scoped, so the request carries only a name.
+func mapWormholeToRelay(_ context.Context, obj client.Object) []reconcile.Request {
+	w, ok := obj.(*universev1alpha1.Wormhole)
+	if !ok || w.Spec.RelayRef == "" {
+		return nil
+	}
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: w.Spec.RelayRef}}}
 }
 
 // surveyConnectedWormholes lists Wormholes in all namespaces, sums the throughput

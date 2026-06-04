@@ -296,8 +296,19 @@ func routeTraffic(rctx *prose.Context[*universev1alpha1.Wormhole]) (prose.Outcom
 	rctx.Set("relay.saturated", relay.Status.Saturated)
 
 	if relay.Status.Saturated {
-		rctx.Event(corev1.EventTypeWarning, "RelaySaturated",
-			"relay %s is saturated; holding traffic", relay.Name)
+		// The relay can't carry this wormhole's traffic right now. Hold (RequeueAfter,
+		// not an error) and reflect it in the phase. Persist + emit only on the
+		// transition into Throttled so a sustained hold doesn't churn writes or events;
+		// the relay's Watch re-reconciles us the moment it drops out of saturation.
+		if w.Status.Phase != "Throttled" {
+			w.Status.Phase = "Throttled"
+			if err := rctx.Client().Status().Update(rctx.Context(), w); err != nil {
+				return prose.Requeue, humane.Wrap(err, "persist throttled status",
+					"verify the Wormhole CRD has its status subresource enabled")
+			}
+			rctx.Event(corev1.EventTypeWarning, "RelaySaturated",
+				"relay %s is saturated; holding traffic", relay.Name)
+		}
 		return prose.RequeueAfter(15 * time.Second), nil
 	}
 
