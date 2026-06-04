@@ -1,0 +1,5 @@
+.temp
+.cache
+dist
+node_modules
+superpowers
