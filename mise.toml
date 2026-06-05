@@ -5,7 +5,7 @@
 go = "1.26.3"
 golangci-lint = "2.12.2"
 goreleaser = "2.16.0"
-cosign = "3.0.6"
+cosign = "2.6.3"
 # Sample operators (envtest + Kind e2e) need these.
 operator-sdk = "1.42.2"
 kind = "0.31.0"
