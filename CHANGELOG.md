@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.2](https://github.com/SpechtLabs/prose/compare/v0.0.1...v0.0.2) (2026-06-12)
+
+
+### Features
+
+* **samples:** add operator-sdk wormhole comparison ([2011d58](https://github.com/SpechtLabs/prose/commit/2011d58bec3df33036e9076e7faca0360584faf0))
+
 ## 0.0.1 (2026-06-04)
 
 
