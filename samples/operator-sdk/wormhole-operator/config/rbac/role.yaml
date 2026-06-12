@@ -1,0 +1,69 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - universe.specht-labs.de
+  resources:
+  - anchors
+  - subspacerelays
+  - wormholes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - universe.specht-labs.de
+  resources:
+  - anchors/finalizers
+  - subspacerelays/finalizers
+  - wormholes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - universe.specht-labs.de
+  resources:
+  - anchors/status
+  - subspacerelays/status
+  - wormholes/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -1,0 +1,11 @@
+## Append samples of your project ##
+resources:
+  # The shared cluster-scoped relay first (others reference it by name).
+  - universe_v1alpha1_subspacerelay.yaml
+  - demo_namespaces.yaml
+  # A wormhole in the default namespace and a standalone anchor.
+  - universe_v1alpha1_wormhole.yaml
+  - universe_v1alpha1_anchor.yaml
+  # Cross-namespace wormholes: voyager (milkyway) and a paused probe (andromeda).
+  - demo_wormholes.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

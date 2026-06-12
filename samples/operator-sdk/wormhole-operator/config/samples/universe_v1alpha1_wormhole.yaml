@@ -1,0 +1,16 @@
+apiVersion: universe.specht-labs.de/v1alpha1
+kind: Wormhole
+metadata:
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+    app.kubernetes.io/managed-by: kustomize
+  # Lands in the default namespace. The Wormhole controller will reserve
+  # coordinates, create two owned Anchors (wormhole-sample-entry / -exit), charge
+  # to the ignition threshold, open a tunnel ConfigMap, then try to route traffic
+  # through gateway-prime.
+  name: wormhole-sample
+spec:
+  destination: "Andromeda/M31"
+  throughput: 70
+  relayRef: gateway-prime
+  paused: false

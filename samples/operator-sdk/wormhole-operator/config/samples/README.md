@@ -1,8 +1,8 @@
-# Wormhole Demo Manifests: prose
+# Wormhole Demo Manifests: Operator SDK
 
-These manifests run one coherent scenario for the prose wormhole operator. The
-scenario is the same as the Operator SDK sample so you can compare behavior,
-logs, spans, events, and status transitions directly.
+These manifests run one coherent scenario for the Operator SDK wormhole
+operator. The scenario is the same as the prose sample so you can compare
+behavior, logs, spans, events, and status transitions directly.
 
 ## What gets created
 
@@ -23,7 +23,7 @@ the relay bandwidth to exercise saturation.
 
 ## Run
 
-From `samples/prose/wormhole-operator`:
+From `samples/operator-sdk/wormhole-operator`:
 
 ```sh
 kind create cluster --name wormhole-demo

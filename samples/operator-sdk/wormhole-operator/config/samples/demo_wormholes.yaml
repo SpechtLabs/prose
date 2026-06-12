@@ -1,0 +1,32 @@
+# voyager routes through the same cluster-scoped relay from a different namespace.
+# This is what makes the Watches fan-out worth having: edit gateway-prime (e.g.
+# change its bandwidth) and every Wormhole referencing it re-reconciles, across
+# namespaces, via the MapFunc.
+apiVersion: universe.specht-labs.de/v1alpha1
+kind: Wormhole
+metadata:
+  name: voyager
+  namespace: milkyway
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+spec:
+  destination: "Sagittarius A*"
+  throughput: 60
+  relayRef: gateway-prime
+  paused: false
+---
+# paused-probe is paused, so its reconcile short-circuits at the When("paused").Skip()
+# gate before any work runs. It still appears in the relay's survey as a connected
+# wormhole, but contributes 0 throughput.
+apiVersion: universe.specht-labs.de/v1alpha1
+kind: Wormhole
+metadata:
+  name: paused-probe
+  namespace: andromeda
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+spec:
+  destination: "Triangulum/M33"
+  throughput: 0
+  relayRef: gateway-prime
+  paused: true

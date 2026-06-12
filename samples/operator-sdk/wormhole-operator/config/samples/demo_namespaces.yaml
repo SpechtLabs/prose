@@ -1,0 +1,16 @@
+# Two extra namespaces so the demo spans more than one. The cluster-scoped
+# SubspaceRelay is shared across all of them; kubectl applies namespaces before
+# the namespaced resources that land in them.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: milkyway
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: andromeda
+  labels:
+    app.kubernetes.io/name: wormhole-operator

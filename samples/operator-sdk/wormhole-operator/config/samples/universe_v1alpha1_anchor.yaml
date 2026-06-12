@@ -1,0 +1,15 @@
+# A standalone Anchor, applied directly to exercise the Anchor controller on its
+# own. In normal operation a Wormhole creates its own entry/exit anchors; this one
+# is deliberately an orphan so you can watch a single Anchor climb its stability
+# (Forming -> Stable via RequeueAfter) and converge its backing Deployment.
+apiVersion: universe.specht-labs.de/v1alpha1
+kind: Anchor
+metadata:
+  labels:
+    app.kubernetes.io/name: wormhole-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: anchor-sample
+spec:
+  end: entry
+  coordinates: "coord-demo"
+  targetStability: 100

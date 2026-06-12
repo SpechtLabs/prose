@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: wormhole-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: wormhole-operator
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      app.kubernetes.io/name: wormhole-operator
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        # Grafana Alloy annotation autodiscovery scrapes this pod's HTTP /metrics.
+        k8s.grafana.com/scrape: "true"
+        k8s.grafana.com/metrics.portNumber: "8080"
+        k8s.grafana.com/metrics.path: "/metrics"
+        k8s.grafana.com/metrics.scheme: "http"
+      labels:
+        control-plane: controller-manager
+        app.kubernetes.io/name: wormhole-operator
+    spec:
+      # TODO(user): Uncomment the following code to configure the nodeAffinity expression
+      # according to the platforms which are supported by your solution.
+      # It is considered best practice to support multiple architectures. You can
+      # build your manager image using the makefile target docker-buildx.
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       nodeSelectorTerms:
+      #         - matchExpressions:
+      #           - key: kubernetes.io/arch
+      #             operator: In
+      #             values:
+      #               - amd64
+      #               - arm64
+      #               - ppc64le
+      #               - s390x
+      #           - key: kubernetes.io/os
+      #             operator: In
+      #             values:
+      #               - linux
+      securityContext:
+        # Projects are configured by default to adhere to the "restricted" Pod Security Standards.
+        # This ensures that deployments meet the highest security requirements for Kubernetes.
+        # For more details, see: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - command:
+        - /manager
+        args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+        image: controller:latest
+        name: manager
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # OTLP endpoint of the cluster's Grafana Alloy receiver. cmd/main.go only
+          # installs the trace exporter when this is set, so removing it keeps the
+          # operator quiet/local without a code change.
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: http://grafana-k8s-monitoring-alloy-receiver.monitoring.svc.cluster.local:4318
+          - name: OTEL_SERVICE_NAME
+            value: wormhole-operator
+          # service.namespace is what Application Observability keys the service
+          # entity on (the "wormhole-system/wormhole-operator" entity) and filters
+          # its Traces tab by. Without it our SDK traces don't match the entity, even
+          # though raw Tempo search finds them.
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: service.namespace=$(POD_NAMESPACE),k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME)
+        ports:
+          - name: metrics
+            containerPort: 8080
+            protocol: TCP
+          - name: health
+            containerPort: 8081
+            protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        # TODO(user): Configure the resources accordingly based on the project requirements.
+        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts: []
+      volumes: []
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 10

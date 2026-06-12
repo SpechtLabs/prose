@@ -1,140 +1,133 @@
-# wormhole-operator
+# Wormhole Operator: prose
 
-// TODO(user): Add simple overview of use/purpose
+This sample is a deliberately non-trivial Kubernetes operator written with
+`prose`. It exists as the framework-native half of a side-by-side comparison with
+[`samples/operator-sdk/wormhole-operator`](../../operator-sdk/wormhole-operator).
 
-## Description
+The operator manages a small fictional domain:
 
-// TODO(user): An in-depth paragraph about your project and overview of use
+- `Wormhole` reserves coordinates, creates two owned `Anchor` resources, charges
+  over time, opens a tunnel `ConfigMap`, and optionally routes traffic.
+- `Anchor` creates a backing field-generator `Deployment` and tuning `ConfigMap`,
+  then climbs toward a target stability.
+- `SubspaceRelay` is cluster-scoped and aggregates throughput from every
+  `Wormhole` that references it.
 
-## Getting Started
+Nothing here controls real infrastructure. The fake domain is intentionally rich
+enough to exercise common operator concerns: owned resources, status updates,
+timed requeues, cross-resource watches, cluster-scoped fan-out, finalizers,
+cleanup, Kubernetes Events, trace spans, and structured reconcile logs.
 
-### Prerequisites
+## Why this version matters
 
-- go version v1.24.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+The controllers are expressed as prose pipelines: named, ordered steps grouped
+around the domain story. The Wormhole controller, for example, reads as:
 
-### To Deploy on the cluster
+1. skip paused objects
+2. reserve coordinates
+3. create entry and exit anchors
+4. open a subspace link
+5. charge toward ignition
+6. open the tunnel
+7. route traffic when requested
+8. write status
+9. on delete, drain and release coordinates
 
-**Build and push your image to the location specified by `IMG`:**
+The important comparison point is that `prose` owns the repeated reconcile
+machinery at the framework boundary. The controller code names steps and records
+domain fields with `rctx.Set`; the framework automatically turns that into:
+
+- one OpenTelemetry root span per reconcile, named `reconcile.<controller>`
+- child spans for each group and step
+- span attributes from the same fields used in logs
+- one structured wide-event log line per reconcile
+- per-step duration and outcome fields
+- step metrics
+- Kubernetes Events through `rctx.Event`
+- cleanup and finalizer ordering
+
+In other words, observability is a property of the pipeline structure, not
+something each reconciler has to remember to hand-wire.
+
+## Key files
+
+- [Wormhole controller](./internal/controller/wormhole_controller.go)
+- [Anchor controller](./internal/controller/anchor_controller.go)
+- [SubspaceRelay controller](./internal/controller/subspacerelay_controller.go)
+- [API types](./api/v1alpha1)
+- [Demo manifests](./config/samples)
+
+## Running locally
+
+From this directory:
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/wormhole-operator:tag
-```
-
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
-
-**Install the CRDs into the cluster:**
-
-```sh
+kind create cluster --name wormhole-demo
 make install
+make run
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+In another shell:
 
 ```sh
-make deploy IMG=<some-registry>/wormhole-operator:tag
+kubectl apply -k config/samples
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+Watch the domain converge:
 
 ```sh
-kubectl apply -k config/samples/
+kubectl get wormholes -A -w
+kubectl get anchors -A -w
+kubectl get subspacerelays -w
+kubectl get events -A --field-selector reason=Saturated
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+The default scenario creates one active wormhole, one paused wormhole, one
+standalone anchor, and one relay. The active wormhole charges for roughly 90
+seconds before opening. Re-enable `wormhole-sample` in
+`config/samples/kustomization.yaml` to push the relay into saturation.
 
-### To Uninstall
+## Observability
 
-**Delete the instances (CRs) from the cluster:**
+Wide logs are emitted through controller-runtime's logger. A Wormhole reconcile
+will include fields such as:
+
+- `result`
+- `requeue_after`
+- `duration`
+- `anchors.reserve-coordinates.duration`
+- `anchors.reserve-coordinates.outcome`
+- `coordinates.id`
+- `charge.level`
+- `relay.saturated`
+- `status.phase`
+
+Trace export is enabled when either `OTEL_EXPORTER_OTLP_ENDPOINT` or
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is set. Without an endpoint, the global
+tracer remains a no-op and local `make run` does not try to contact a collector.
+
+Example:
 
 ```sh
-kubectl delete -k config/samples/
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make run
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+The service name defaults to `wormhole-operator`, and can be overridden with
+standard OpenTelemetry environment variables such as `OTEL_SERVICE_NAME` or
+`OTEL_RESOURCE_ATTRIBUTES`.
+
+## Cleanup
 
 ```sh
-make uninstall
+kubectl delete -k config/samples
+kind delete cluster --name wormhole-demo
 ```
 
-**UnDeploy the controller from the cluster:**
+## Compare with Operator SDK
 
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following the options to release and provide this solution to the users.
-
-### By providing a bundle with all YAML files
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/wormhole-operator:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-1. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/wormhole-operator/<tag or branch>/dist/install.yaml
-```
-
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-operator-sdk edit --plugins=helm/v1-alpha
-```
-
-1. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
-
-## Contributing
-
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Read this sample next to
+[`samples/operator-sdk/wormhole-operator`](../../operator-sdk/wormhole-operator).
+Both implement the same behavior and emit similar telemetry. The difference is
+where the work lives: in this sample, the pipeline structure drives the
+instrumentation automatically; in the Operator SDK sample, equivalent spans and
+wide logs are written explicitly in each reconciler.

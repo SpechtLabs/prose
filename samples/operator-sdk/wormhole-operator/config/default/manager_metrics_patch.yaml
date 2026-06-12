@@ -1,0 +1,11 @@
+# Serve controller-runtime metrics over plain HTTP on :8080 so Grafana Alloy
+# annotation autodiscovery can scrape them. This cluster runs k8s-monitoring with
+# prometheus-operator ServiceMonitor/PodMonitor support disabled, so scraping is
+# driven by the k8s.grafana.com/scrape pod annotations on the manager Deployment,
+# not by config/prometheus. Insert before the existing args so order stays stable.
+- op: add
+  path: /spec/template/spec/containers/0/args/0
+  value: --metrics-bind-address=:8080
+- op: add
+  path: /spec/template/spec/containers/0/args/1
+  value: --metrics-secure=false
