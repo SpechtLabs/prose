@@ -7,7 +7,7 @@ golangci-lint = "2.12.2"
 goreleaser = "2.16.0"
 cosign = "2.6.3"
 # Sample operators (envtest + Kind e2e) need these.
-operator-sdk = "1.42.2"
+operator-sdk = "1.42.3"
 kind = "0.31.0"
 kubectl = "1.36.1"
 bun = "latest"
