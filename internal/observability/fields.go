@@ -15,10 +15,11 @@ import (
 // A reconcile runs on a single goroutine (controller-runtime serializes work per
 // object key), so Fields needs no locking.
 type Fields struct {
-	order []string
 	vals  map[string]any
+	order []string
 }
 
+// NewFields returns an empty accumulator.
 func NewFields() *Fields {
 	return &Fields{vals: make(map[string]any)}
 }

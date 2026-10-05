@@ -1,136 +1,37 @@
-name: CI Build & Test
+name: CI
 
+# Everything a pull request runs. Each part is a workflow of its own, which
+# release.yaml calls in part (go.yaml gates every release) and which runs on
+# its own from the Actions tab.
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "**.md"
-      - .github/workflows/release.yaml
-      - .github/workflows/validations.yaml
+  # Skip pull requests that only touch documentation; the docs workflow covers
+  # those. The filter excludes rather than lists, so a new source directory or
+  # config file runs CI by default. Nothing under docs/ is YAML, so yamllint
+  # loses nothing. No check is required by the rulesets, which is what makes a
+  # workflow-level filter safe: a skipped required check would block the merge.
   pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
-    paths-ignore:
-      - "**.md"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!LICENSE"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to a pull request supersedes its run in flight.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  validate:
-    name: Lint & Format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      # mise installs the whole toolchain (Go, golangci-lint, ...) from mise.toml
-      # and caches it; this is the single dependency-install mechanism.
-      - name: Set up mise
-        uses: jdx/mise-action@v2
-        with:
-          cache: true
-
-      - name: Cache Go modules and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: golangci-lint
-        run: mise run lint
-
-      - name: gofmt check
-        run: |
-          UNFORMATTED=$(gofmt -l .)
-          if [ -n "$UNFORMATTED" ]; then
-            echo "The following files are not gofmt-ed:"
-            echo "$UNFORMATTED"
-            exit 1
-          fi
-
-  test:
-    name: Unit & Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up mise
-        uses: jdx/mise-action@v2
-        with:
-          cache: true
-
-      - name: Cache Go modules and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Unit tests
-        run: go test -race -cover -covermode=atomic -coverprofile=coverage.txt ./...
-
-      - name: Integration tests (envtest)
-        run: mise run test-envtest
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+  go:
+    name: Go
+    uses: ./.github/workflows/go.yaml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   samples:
-    name: Sample (${{ matrix.sample }})
-    runs-on: ubuntu-latest
-    # The samples depend on the framework via a local replace directive, so this
-    # matrix catches framework changes that would break a real operator.
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        sample:
-          - memcached-operator
-          - wormhole-operator
-    defaults:
-      run:
-        working-directory: samples/prose/${{ matrix.sample }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up mise
-        uses: jdx/mise-action@v2
-        with:
-          cache: true
-
-      - name: Cache Go modules and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-samples-${{ matrix.sample }}-${{ hashFiles(format('samples/prose/{0}/go.sum', matrix.sample)) }}
-          restore-keys: |
-            ${{ runner.os }}-go-samples-${{ matrix.sample }}-
-            ${{ runner.os }}-go-
-
-      - name: Unit tests (envtest)
-        run: make test
-
-      - name: End-to-end tests (Kind)
-        run: make test-e2e
+    name: Samples
+    uses: ./.github/workflows/samples.yaml

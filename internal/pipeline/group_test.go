@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,6 +67,28 @@ var _ = ginkgo.Describe("the executor", func() {
 		Expect(fieldVal(rctx, "deps.a.outcome")).To(Equal("continue"))
 		Expect(rctx.fields.Has("deps.b.duration")).To(BeTrue())
 		Expect(fieldVal(rctx, "c.outcome")).To(Equal("continue"), "top-level step flattens without a group prefix")
+	})
+
+	ginkgo.It("measures step durations with the sink's clock", func() {
+		// Every reading moves the clock on by a second, so each step, which
+		// reads it once before and once after, lasts exactly one second.
+		clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		tick := func() time.Time {
+			clock = clock.Add(time.Second)
+			return clock
+		}
+		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "widget", Namespace: "team-a"}}
+		rctx = newContext[*corev1.Pod](context.Background(), nil, nil,
+			observability.NewSink(observability.Clock(tick)), "pod", "prose", pod)
+
+		_, err := rctx.run([]*node[*corev1.Pod]{
+			grp("deps", nil, recStep(&log, "a", Continue, nil)),
+			recStep(&log, "b", Continue, nil),
+		})
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fieldVal(rctx, "deps.a.duration")).To(Equal("1s"))
+		Expect(fieldVal(rctx, "b.duration")).To(Equal("1s"))
 	})
 
 	ginkgo.It("skips the body of a When group whose predicate does not hold", func() {

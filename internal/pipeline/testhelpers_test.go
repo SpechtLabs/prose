@@ -70,9 +70,10 @@ func (s *recLogSink) WithValues(kv ...any) logr.LogSink {
 }
 func (s *recLogSink) WithName(string) logr.LogSink { return s }
 
-func (r *logRecorder) line(msg string) (logLine, bool) {
+// wideEvent returns the reconcile's wide event, the line logged as "reconcile".
+func (r *logRecorder) wideEvent() (logLine, bool) {
 	for _, l := range r.lines {
-		if l.msg == msg {
+		if l.msg == "reconcile" {
 			return l, true
 		}
 	}

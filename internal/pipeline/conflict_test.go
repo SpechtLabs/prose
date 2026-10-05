@@ -66,10 +66,10 @@ var _ = ginkgo.Describe("resolveConflict", func() {
 
 		// Three conflicts, then a clean reconcile, then conflicts again: the count
 		// must restart from 1, not carry over.
-		for i := 0; i < maxQuietConflicts; i++ {
-			r.resolveConflict(rctx, "milkyway/voyager", Requeue, conflictErr())
+		for range maxQuietConflicts {
+			_, _ = r.resolveConflict(rctx, "milkyway/voyager", Requeue, conflictErr())
 		}
-		r.resolveConflict(rctx, "milkyway/voyager", Continue, nil)
+		_, _ = r.resolveConflict(rctx, "milkyway/voyager", Continue, nil)
 
 		outcome, err := r.resolveConflict(rctx, "milkyway/voyager", Requeue, conflictErr())
 		Expect(err).To(BeNil())

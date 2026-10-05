@@ -73,4 +73,33 @@ var _ = ginkgo.Describe("Builder", func() {
 		Expect(b.finalize.children).To(HaveLen(2))
 		Expect(b.root.children).To(BeEmpty())
 	})
+
+	ginkgo.DescribeTable("returns a When with more than one closure from Complete, without running any",
+		func(build func(b *Builder[*corev1.Pod], ran *[]string)) {
+			b := newTestBuilder()
+			var ran []string
+
+			build(b, &ran)
+			_, err := b.Complete()
+
+			Expect(err).To(MatchError(ContainSubstring(`When("twice") got 2 group closures but accepts at most one`)))
+			Expect(ran).To(BeEmpty())
+		},
+		ginkgo.Entry("at the top level", func(b *Builder[*corev1.Pod], ran *[]string) {
+			always := func(*corev1.Pod) bool { return true }
+			b.When("twice", always,
+				func(*Group[*corev1.Pod]) { *ran = append(*ran, "first") },
+				func(*Group[*corev1.Pod]) { *ran = append(*ran, "second") },
+			).Step("after", okStep)
+		}),
+		ginkgo.Entry("inside a group", func(b *Builder[*corev1.Pod], ran *[]string) {
+			always := func(*corev1.Pod) bool { return true }
+			b.Describe("outer", func(g *Group[*corev1.Pod]) {
+				g.When("twice", always,
+					func(*Group[*corev1.Pod]) { *ran = append(*ran, "first") },
+					func(*Group[*corev1.Pod]) { *ran = append(*ran, "second") },
+				)
+			})
+		}),
+	)
 })

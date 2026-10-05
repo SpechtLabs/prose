@@ -43,7 +43,7 @@ func FoldError(f *Fields, basePath string, err error) {
 // rather than a bare cause. The original error becomes the cause (preserving
 // errors.Is), and any humane advice is lifted onto the frame so it survives at the
 // controller-runtime boundary.
-func FrameError(stepName string, err error) error {
+func FrameError(stepName string, err error) humane.Error {
 	var h humane.Error
 	if errors.As(err, &h) {
 		return humane.Wrap(err, stepName, h.Advice()...)

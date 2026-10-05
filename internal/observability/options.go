@@ -1,6 +1,8 @@
 package observability
 
 import (
+	"time"
+
 	"github.com/go-logr/logr"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/tools/record"
@@ -35,5 +37,15 @@ func WideEvents(logger logr.Logger) Option {
 func Recorder(rec record.EventRecorder) Option {
 	return func(s *Sink) {
 		s.recorder = rec
+	}
+}
+
+// Clock replaces the clock step and reconcile durations are measured with, so a
+// test can assert exact durations. The wall clock is the default.
+func Clock(now func() time.Time) Option {
+	return func(s *Sink) {
+		if now != nil {
+			s.now = now
+		}
 	}
 }

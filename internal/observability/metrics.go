@@ -17,16 +17,18 @@ type StepMetrics struct {
 	duration *prometheus.HistogramVec
 }
 
+// NewStepMetrics creates the step duration histogram and registers it with reg.
 func NewStepMetrics(reg prometheus.Registerer) *StepMetrics {
 	h := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "prose_step_duration_seconds",
-		Help:    "Duration of each prose reconcile step, labelled by controller, step, and outcome.",
+		Help:    "Duration of each prose reconcile step, labeled by controller, step, and outcome.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"controller", "step", "outcome"})
 	reg.MustRegister(h)
 	return &StepMetrics{duration: h}
 }
 
+// Observe records one step duration under its (controller, step, outcome) labels.
 func (m *StepMetrics) Observe(controller, step, outcome string, d time.Duration) {
 	m.duration.WithLabelValues(controller, step, outcome).Observe(d.Seconds())
 }

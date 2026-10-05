@@ -28,32 +28,36 @@ import (
 // spec. Do not apply it to an owned ConfigMap or Secret: those have no generation,
 // so a change to their data would look status-only and be dropped. The primary CRD
 // watch and owned types like a Deployment or another CRD are the right places.
-func IgnoreStatusOnlyUpdates() predicate.Predicate {
+func IgnoreStatusOnlyUpdates() predicate.Funcs {
 	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectOld == nil || e.ObjectNew == nil {
-				return true // malformed event: reconcile rather than silently drop
-			}
-			o, n := e.ObjectOld, e.ObjectNew
-			switch {
-			case o.GetGeneration() != n.GetGeneration():
-				return true
-			case deletionTimestampChanged(o, n):
-				return true
-			case !slices.Equal(o.GetFinalizers(), n.GetFinalizers()):
-				return true
-			case !maps.Equal(o.GetLabels(), n.GetLabels()):
-				return true
-			case !maps.Equal(o.GetAnnotations(), n.GetAnnotations()):
-				return true
-			default:
-				// Generation and every metadata field we care about are unchanged, so
-				// the only thing that moved was status (or resourceVersion): drop it.
-				return false
-			}
-		},
+		UpdateFunc: changedBeyondStatus,
 		// Create, Delete, and Generic are left nil, so predicate.Funcs returns true
 		// for them and prose still reconciles on those events.
+	}
+}
+
+// changedBeyondStatus reports whether an update changed anything but the
+// object's status (or resourceVersion).
+func changedBeyondStatus(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return true // malformed event: reconcile rather than silently drop
+	}
+	o, n := e.ObjectOld, e.ObjectNew
+	switch {
+	case o.GetGeneration() != n.GetGeneration():
+		return true
+	case deletionTimestampChanged(o, n):
+		return true
+	case !slices.Equal(o.GetFinalizers(), n.GetFinalizers()):
+		return true
+	case !maps.Equal(o.GetLabels(), n.GetLabels()):
+		return true
+	case !maps.Equal(o.GetAnnotations(), n.GetAnnotations()):
+		return true
+	default:
+		// Generation and every metadata field we care about are unchanged, so
+		// the only thing that moved was status (or resourceVersion): drop it.
+		return false
 	}
 }
 

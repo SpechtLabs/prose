@@ -1,0 +1,182 @@
+# .mise.toml — local tooling, exact pins (repo convention)
+#
+# The tasks below define how prose is built and checked. CI uses these tasks.
+# Renovate keeps every pin in this file current.
+
+# mise reads the go directive of the nearest go.mod as the Go version to use,
+# so it would run that minimum version rather than the one pinned below. Every
+# tool comes from this file only.
+[settings]
+idiomatic_version_file_enable_tools = []
+
+[env]
+# The example operators under samples/prose that CI tests and publishes. The
+# samples/operator-sdk copies are the hand-written controller-runtime versions
+# kept for comparison, as operator-sdk scaffolded them; nothing builds them.
+SAMPLES = "memcached-operator wormhole-operator"
+
+[tools]
+# Keep in lockstep with the toolchain directive in go.mod; Renovate bumps both
+# together. The go directive (minimum language version) is bumped by hand.
+go = "1.27.1"
+
+# Pre-commit for Git hooks
+pre-commit = "4.6.2"
+
+# Linters. golangci-lint must match the version in .custom-gcl.yml; Renovate
+# groups the two into one PR.
+golangci-lint = "2.14.0"
+yamllint = "1.38.0"
+actionlint = "1.7.12"
+# actionlint runs shellcheck on every `run:` script when it's on PATH, and
+# silently skips them when it isn't.
+shellcheck = "0.11.0"
+
+# Pins GitHub Actions to commit SHAs (see the update-gha task)
+pinact = "5.0.0"
+
+# Documentation website (docs/): VuePress builds under bun, which also runs
+# .github/commit-lint, the squash commit message check in pr-hygiene.yaml.
+# markdownlint-cli2 is an npm package, which mise installs with the node below.
+bun = "1.4.2"
+node = "24.21.0"
+markdownlint-cli2 = "0.23.3"
+
+# The envtest control plane for the integration tests (see test-envtest) and
+# the sample operators' Makefiles, which take every tool from PATH.
+setup-envtest = "0.25.2"
+"go:sigs.k8s.io/controller-tools/cmd/controller-gen" = "0.22.0"
+kustomize = "5.8.2"
+kind = "0.33.0"
+kubectl = "1.37.1"
+# Bundles and catalogs for the samples (`make bundle`); CI doesn't build them.
+operator-sdk = "1.42.3"
+
+[vars]
+# The Kubernetes version envtest runs: the minor of k8s.io/api in go.mod.
+envtest_k8s_version = "1.33.0"
+
+[tasks.build]
+description = "Build every package"
+run = "go build ./..."
+
+[tasks.test]
+description = "Run the unit tests with race detector and coverage"
+run = "go test -race -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt ./..."
+
+# The integration tests look in bin/k8s when KUBEBUILDER_ASSETS isn't set, so
+# after this they run from an IDE too.
+[tasks.setup-envtest]
+description = "Download the envtest control plane into bin/k8s"
+run = "setup-envtest use {{vars.envtest_k8s_version}} --bin-dir {{config_root}}/bin"
+
+[tasks.test-envtest]
+description = "Run the integration tests against a real apiserver (envtest)"
+run = '''
+KUBEBUILDER_ASSETS="$(setup-envtest use {{vars.envtest_k8s_version}} --bin-dir {{config_root}}/bin -p path)" \
+  go test -race -tags envtest ./...
+'''
+
+# `mise run fmt` rewrites everything that has a canonical form; `mise run
+# lint` checks the same things without touching a file. The steps run in
+# order, because go mod tidy may rewrite go.mod.
+[tasks.fmt]
+description = "Format everything: go.mod, Go sources and Markdown"
+run = [
+  { task = "go-tidy" },
+  { task = "go-fmt" },
+  { task = "md-fmt" },
+]
+
+[tasks.go-tidy]
+description = "Tidy go.mod and go.sum"
+run = "go mod tidy"
+
+# The same gofmt and goimports settings `mise run lint` checks, read from
+# .golangci.yaml.
+[tasks.go-fmt]
+description = "Format Go sources with the formatters configured for golangci-lint"
+run = "golangci-lint fmt"
+
+[tasks.md-fmt]
+description = "Fix what markdownlint can fix in the documentation and the README"
+run = "markdownlint-cli2 --fix 'docs/**/*.md' '*.md'"
+
+# golint-sl runs as a golangci-lint module plugin, so it has to be compiled into
+# a custom binary (./custom-gcl). Rebuilds only when .custom-gcl.yml changes.
+[tasks.lint-build]
+description = "Build the custom-gcl binary with the golint-sl plugin baked in"
+# The build downloads golangci-lint's whole dependency tree, and the module
+# proxy sometimes resets the HTTP/2 stream partway through. Modules already
+# downloaded stay in the cache, so a retry picks up where it failed.
+run = """
+for attempt in 1 2 3; do
+  golangci-lint custom && exit 0
+  echo "golangci-lint custom failed (attempt $attempt of 3)" >&2
+  sleep 10
+done
+exit 1
+"""
+sources = [".custom-gcl.yml"]
+outputs = ["custom-gcl"]
+
+# A consumer resolves against go.mod as it's tagged, so an untidy one has to
+# fail CI rather than ship in a release.
+[tasks.mod-tidy]
+description = "Check that go.mod and go.sum are tidy"
+run = "go mod tidy -diff"
+
+[tasks.lint]
+description = "Lint the Go module with golangci-lint and golint-sl, YAML and workflows"
+depends = ["lint-build", "yaml-lint", "actionlint"]
+run = "./custom-gcl run ./..."
+
+[tasks.yaml-lint]
+description = "Lint every YAML file in the repository"
+run = "yamllint --strict ."
+
+[tasks.actionlint]
+description = "Lint the GitHub Actions workflows"
+run = "actionlint"
+
+# The samples resolve prose from the working tree (a replace directive), so
+# they catch a framework change that would break a real operator. `make test`
+# regenerates the CRDs, RBAC and deep copies, formats and vets, then runs the
+# controller tests against envtest; their Makefiles take every tool from PATH.
+[tasks.samples-test]
+description = "Test the sample operators against envtest: `mise run samples-test [sample]...`"
+usage = 'arg "[sample]..." help="The samples to test (default: all)" var=#true'
+run = 'for s in ${usage_sample:-$SAMPLES}; do (cd "samples/prose/$s" && go mod tidy -diff && make test) || exit 1; done'
+
+# Needs Docker: it builds the operator image, loads it into a Kind cluster,
+# deploys it and checks its metrics endpoint.
+[tasks.samples-e2e]
+description = "Run the sample operators' end-to-end tests in Kind: `mise run samples-e2e [sample]...`"
+usage = 'arg "[sample]..." help="The samples to test (default: all)" var=#true'
+run = 'for s in ${usage_sample:-$SAMPLES}; do (cd "samples/prose/$s" && make test-e2e) || exit 1; done'
+
+[tasks.check]
+description = "The definition of done: every gate CI runs on the Go code"
+depends = [
+  "lint",
+  "mod-tidy",
+  "test",
+  "test-envtest",
+  "samples-test",
+]
+
+[tasks.update-gha]
+description = "Pin GitHub Actions to commit SHAs (Renovate keeps them current afterwards)"
+run = "pinact run -e 'SpechtLabs/StaticPages-Upload'"
+
+[tasks.docs-lint]
+description = "Lint the documentation markdown (the docs workflow's first job)"
+run = "markdownlint-cli2"
+
+[tasks.docs-dev]
+description = "Serve the documentation website locally with hot reload"
+run = "cd docs && bun install && bun run dev"
+
+[tasks.docs-build]
+description = "Build the documentation website (the docs workflow's second job)"
+run = "cd docs && bun install --frozen-lockfile && bun run build"

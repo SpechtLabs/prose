@@ -7,3 +7,9 @@
 # test coverage
 coverage.txt
 cover.out
+
+# The golangci-lint binary with golint-sl baked in (mise run lint-build)
+custom-gcl
+
+# The squash commit message check's dependencies
+.github/commit-lint/node_modules/

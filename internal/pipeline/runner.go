@@ -33,11 +33,11 @@ type runner[T client.Object] struct {
 	controller string
 	finalizer  string
 	fieldOwner string
-	baseLogger logr.Logger
 
 	// conflicts tracks consecutive optimistic-concurrency conflicts per object so a
 	// transient conflict requeues quietly and only a persistent streak logs loudly.
-	conflicts *conflictTracker
+	conflicts  *conflictTracker
+	baseLogger logr.Logger
 	// maxConflicts is the streak length tolerated quietly before going loud, set by
 	// Builder.WithConflictTolerance (default maxQuietConflicts).
 	maxConflicts int
@@ -91,7 +91,7 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 	rctx.ctx = spanCtx
 	rctx.span = rootSpan
 
-	start := time.Now()
+	start := r.sink.Now()
 	outcome := Continue
 	var rerr error
 
@@ -103,11 +103,11 @@ func (r *runner[T]) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.
 		}
 		rootSpan.End()
 		result, _ := translate(outcome, rerr)
-		r.emit(logger, rctx, outcome, rerr, result, time.Since(start))
+		r.emit(logger, rctx, outcome, rerr, result, r.sink.Now().Sub(start))
 	}()
 
 	outcome, rerr = r.execute(rctx, obj)
-	outcome, rerr = r.resolveConflict(rctx, req.NamespacedName.String(), outcome, rerr)
+	outcome, rerr = r.resolveConflict(rctx, req.String(), outcome, rerr)
 	return translate(outcome, rerr)
 }
 
@@ -118,15 +118,9 @@ func (r *runner[T]) execute(rctx *Context[T], obj T) (Outcome, error) {
 	deleting := !obj.GetDeletionTimestamp().IsZero()
 
 	// Finalizer add on the normal path, only when there is teardown to do.
-	if r.finalize != nil && !deleting {
-		if controllerutil.AddFinalizer(obj, r.finalizer) {
-			if err := r.client.Update(rctx.ctx, obj); err != nil {
-				if isCancellation(rctx.ctx, err) {
-					return aborted, nil
-				}
-				return Requeue, observability.FrameError("finalizer", humane.Wrap(err, "add finalizer",
-					"verify the controller has RBAC to update this resource"))
-			}
+	if r.finalize != nil && !deleting && controllerutil.AddFinalizer(obj, r.finalizer) {
+		if out, err := r.persistFinalizer(rctx, obj, "add finalizer"); err != nil || out.kind != kindContinue {
+			return out, err
 		}
 	}
 
@@ -149,19 +143,30 @@ func (r *runner[T]) execute(rctx *Context[T], obj T) (Outcome, error) {
 	rctx.runCleanups()
 
 	// Finalizer removal once the Finalize group has succeeded.
-	if deleting && r.finalize != nil && stepErr == nil && terminalSuccess(outcome) {
-		if controllerutil.RemoveFinalizer(obj, r.finalizer) {
-			if err := r.client.Update(rctx.ctx, obj); err != nil {
-				if isCancellation(rctx.ctx, err) {
-					return aborted, nil
-				}
-				return Requeue, observability.FrameError("finalizer", humane.Wrap(err, "remove finalizer",
-					"verify the controller has RBAC to update this resource"))
-			}
+	if deleting && r.finalize != nil && stepErr == nil && terminalSuccess(outcome) &&
+		controllerutil.RemoveFinalizer(obj, r.finalizer) {
+		if out, err := r.persistFinalizer(rctx, obj, "remove finalizer"); err != nil || out.kind != kindContinue {
+			return out, err
 		}
 	}
 
 	return outcome, stepErr
+}
+
+// persistFinalizer writes obj after its finalizers changed. It returns Continue
+// once the write landed, aborted when the reconcile context was canceled, and
+// Requeue with the framed error otherwise.
+func (r *runner[T]) persistFinalizer(rctx *Context[T], obj T, action string) (Outcome, error) {
+	err := r.client.Update(rctx.ctx, obj)
+	switch {
+	case err == nil:
+		return Continue, nil
+	case isCancellation(rctx.ctx, err):
+		return aborted, nil
+	default:
+		return Requeue, observability.FrameError("finalizer", humane.Wrap(err, action,
+			"verify the controller has RBAC to update this resource"))
+	}
 }
 
 // emit writes the single wide event: one structured log line per reconcile with
@@ -173,11 +178,13 @@ func (r *runner[T]) emit(logger logr.Logger, rctx *Context[T], outcome Outcome, 
 	if err != nil {
 		resultLabel = "error"
 	}
-	kv := []any{
+	fields := rctx.fields.Flatten()
+	kv := make([]any, 0, 6+len(fields))
+	kv = append(kv,
 		"result", resultLabel,
 		"requeue_after", result.RequeueAfter.String(),
 		"duration", dur.String(),
-	}
-	kv = append(kv, rctx.fields.Flatten()...)
+	)
+	kv = append(kv, fields...)
 	logger.Info("reconcile", kv...)
 }

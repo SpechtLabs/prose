@@ -1,6 +1,8 @@
 package observability
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -30,6 +32,13 @@ var _ = Describe("Sink", func() {
 
 			Expect(s.tracer).To(Equal(tr))
 			Expect(s.recorder).To(Equal(rec))
+		})
+
+		It("replace the clock, and keep the wall clock when given none", func() {
+			fixed := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			Expect(NewSink(Clock(func() time.Time { return fixed })).Now()).To(Equal(fixed))
+			Expect(NewSink(Clock(nil)).Now()).To(BeTemporally("~", time.Now(), time.Minute))
 		})
 	})
 

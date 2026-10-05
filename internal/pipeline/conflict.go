@@ -19,8 +19,8 @@ const maxQuietConflicts = 3
 // object key are already serialized by controller-runtime, so the per-key value is
 // a clean consecutive streak rather than a racy tally.
 type conflictTracker struct {
-	mu    sync.Mutex
 	count map[string]int
+	mu    sync.Mutex
 }
 
 func newConflictTracker() *conflictTracker {

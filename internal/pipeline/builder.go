@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -31,6 +32,8 @@ type Builder[T client.Object] struct {
 
 	finalizer string              // overridable; derived from the object GVK at Complete
 	forOpts   []builder.ForOption // predicates/options for the primary (For) watch
+
+	errs []error // setup errors from the chain, returned by Complete
 
 	conflictTolerance int // consecutive conflicts absorbed as quiet requeues before going loud
 }
@@ -106,7 +109,7 @@ func (b *Builder[T]) Step(name string, fn StepFunc[T]) *Builder[T] {
 // Describe adds a named group to the top-level pipeline.
 func (b *Builder[T]) Describe(name string, build func(*Group[T])) *Builder[T] {
 	child := &node[T]{name: name, isGroup: true}
-	build(&Group[T]{n: child})
+	build(&Group[T]{n: child, errs: &b.errs})
 	b.root.children = append(b.root.children, child)
 	return b
 }
@@ -118,14 +121,9 @@ func (b *Builder[T]) Context(name string, build func(*Group[T])) *Builder[T] {
 
 // When adds a predicate-gated group at the top level. Without a closure, call
 // .Skip() on the returned gate for the pause/finalizing/deletion short-circuit.
+// More than one closure is a setup error, which Complete returns.
 func (b *Builder[T]) When(label string, pred Predicate[T], build ...func(*Group[T])) *Gate[T] {
-	if len(build) > 1 {
-		panic("prose: When accepts at most one group closure")
-	}
-	child := &node[T]{name: label, isGroup: true, pred: pred}
-	for _, fn := range build {
-		fn(&Group[T]{n: child})
-	}
+	child := gatedGroup(label, pred, build, &b.errs)
 	b.root.children = append(b.root.children, child)
 	return &Gate[T]{Builder: b, n: child}
 }
@@ -134,7 +132,7 @@ func (b *Builder[T]) When(label string, pred Predicate[T], build ...func(*Group[
 // being deleted, and the framework removes the finalizer once the group succeeds.
 func (b *Builder[T]) Finalize(name string, build func(*Group[T])) *Builder[T] {
 	child := &node[T]{name: name, isGroup: true}
-	build(&Group[T]{n: child})
+	build(&Group[T]{n: child, errs: &b.errs})
 	b.finalize = child
 	return b
 }
@@ -156,21 +154,29 @@ func (g *Gate[T]) Skip() *Builder[T] {
 
 // Complete builds the reconciler, registers it with the manager, and returns the
 // underlying controller-runtime builder (or an error) so a caller can drop to raw
-// controller-runtime for anything prose does not model.
+// controller-runtime for anything prose does not model. A mistake in the chain
+// itself, such as a When with two closures, is returned here too.
 func (b *Builder[T]) Complete() (*builder.TypedBuilder[reconcile.Request], error) {
+	if len(b.errs) > 0 {
+		return b.crb, errors.Join(b.errs...)
+	}
 	if b.sink == nil {
 		b.sink = observability.NewSink()
 	}
 
-	factory, err := newObjectFactory[T]()
-	if err != nil {
-		return b.crb, err
+	factory, ok := newObjectFactory[T]()
+	if !ok {
+		var zero T
+		return b.crb, humane.New(
+			fmt.Sprintf("prose: type parameter %T must be a pointer to a struct implementing client.Object", zero),
+			"instantiate prose.For with a pointer type, for example prose.For[*v1alpha1.Foo]")
 	}
 	obj := factory()
 
 	gvk, err := apiutil.GVKForObject(obj, b.mgr.GetScheme())
 	if err != nil {
-		return b.crb, err
+		return b.crb, humane.Wrap(err, fmt.Sprintf("prose: cannot find the GroupVersionKind of %T", obj),
+			"add the type's API group to the manager's scheme (its AddToScheme) before calling Complete")
 	}
 	controllerName := strings.ToLower(gvk.Kind)
 	finalizer := b.finalizer
@@ -195,25 +201,25 @@ func (b *Builder[T]) Complete() (*builder.TypedBuilder[reconcile.Request], error
 
 	b.crb = b.crb.For(obj, b.forOpts...)
 	if err := b.crb.Complete(r); err != nil {
-		return b.crb, err
+		return b.crb, humane.Wrap(err, fmt.Sprintf("prose: cannot register the %s controller with the manager", controllerName),
+			"the cause comes from controller-runtime; two pipelines for the same kind get the same controller name, so build one pipeline per kind")
 	}
 	return b.crb, nil
 }
 
-// newObjectFactory returns a constructor for fresh instances of T. T is required
-// to be a pointer to a struct implementing client.Object (the usual CRD shape).
-func newObjectFactory[T client.Object]() (func() T, error) {
+// newObjectFactory returns a constructor for fresh instances of T, and false
+// when T is not a pointer to a struct implementing client.Object (the usual CRD
+// shape).
+func newObjectFactory[T client.Object]() (func() T, bool) {
 	var zero T
 	rt := reflect.TypeOf(zero)
 	if rt == nil || rt.Kind() != reflect.Pointer {
-		return nil, humane.New(
-			fmt.Sprintf("prose: type parameter %T must be a pointer to a struct implementing client.Object", zero),
-			"instantiate prose.For with a pointer type, for example prose.For[*v1alpha1.Foo]")
+		return nil, false
 	}
 	elem := rt.Elem()
 	return func() T {
 		return reflect.New(elem).Interface().(T)
-	}, nil
+	}, true
 }
 
 // deriveFinalizer builds a qualified finalizer name from the object's kind and

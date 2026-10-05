@@ -2,60 +2,75 @@
 pipeline:
   - changed-files:
       - any-glob-to-any-file:
-          - 'internal/pipeline/**'
+          - "internal/pipeline/**"
 
 # The non-generic telemetry sink: wide events, spans, metrics, errors.
 observability:
   - changed-files:
       - any-glob-to-any-file:
-          - 'internal/observability/**'
+          - "internal/observability/**"
 
 # The public facade and matcher adapter.
 api:
   - changed-files:
       - any-glob-to-any-file:
-          - 'pkg/prose/**'
+          - "pkg/prose/**"
 
 # Example operators that exercise the framework.
 samples:
   - changed-files:
       - any-glob-to-any-file:
-          - 'samples/**'
+          - "samples/**"
 
 # Tests
 tests:
   - changed-files:
       - any-glob-to-any-file:
-          - '**/*_test.go'
-          - '**/testdata/**'
+          - "**/*_test.go"
+          - "**/testdata/**"
 
-# Documentation (Markdown files)
+# Documentation
 documentation:
   - changed-files:
       - any-glob-to-any-file:
-          - '**/*.md'
+          - "docs/**"
+          - "**/*.md"
 
-# Build, CI, and release plumbing
+# The docs site's build: VuePress config, theme and dependencies
+docs-site:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/.vuepress/**"
+          - "docs/package.json"
+          - "docs/bun.lock"
+
+# Build, release, and CI plumbing
 build:
   - changed-files:
       - any-glob-to-any-file:
-          - '.github/**'
-          - 'mise.toml'
-          - '.goreleaser.yaml'
-          - '.release-please-config.json'
-          - '.release-please-manifest.json'
-          - '.golangci.yml'
-          - 'go.mod'
-          - 'go.sum'
+          - ".github/**"
+          - ".release-please-config.json"
+          - ".release-please-manifest.json"
+          - ".mise.toml"
+          - ".golangci.yaml"
+          - ".custom-gcl.yml"
+          - ".pre-commit-config.yaml"
+          - ".markdownlint-cli2.yaml"
+          - ".yamllint.yaml"
+          - ".editorconfig"
+          - "codecov.yml"
+          - "renovate.json"
+          - "go.mod"
+          - "go.sum"
 
-# Add 'enhancement' label to any PR where the head branch name starts with `feat`
+# Add 'enhancement' to any PR whose head branch starts with `feat` or `feature`
 enhancement:
   - head-branch:
-      - '^feat'
-      - '^feature'
+      - "^feat"
+      - "^feature"
 
-# Add 'bug' label to any PR where the head branch name starts with `bug` or `fix`
+# Add 'bug' to any PR whose head branch starts with `fix` or `bug`
 bug:
   - head-branch:
-      - '^bug'
-      - '^fix'
+      - "^fix"
+      - "^bug"
