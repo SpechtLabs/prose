@@ -115,6 +115,8 @@ github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWN
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sierrasoftworks/humane-errors-go v0.0.0-20260428132744-178d2d0aad2c h1:TlFCGManXBbR+EBc2Nxe/NwnUDoUzBRCaArLrmYJM5A=
 github.com/sierrasoftworks/humane-errors-go v0.0.0-20260428132744-178d2d0aad2c/go.mod h1:98WJMvl0Bvx/4pvShkeT0281OIJX6u6t1khQnMXjctg=
+github.com/sierrasoftworks/humane-errors-go v0.0.0-20260820132314-9a466da5e0f0 h1:9cNxq4nJv4SlCe5+O1USeJIOn5bhp06gdI1CcDiOT6U=
+github.com/sierrasoftworks/humane-errors-go v0.0.0-20260820132314-9a466da5e0f0/go.mod h1:fQ1yre9kStQHEGqICzKYn1NHgnYeo8sNSf1Q0KNgaSA=
 github.com/spf13/cobra v1.8.1 h1:e5/vxKd/rZsfSJMUX1agtjeTDf+qv1/JdBF8gg5k9ZM=
 github.com/spf13/cobra v1.8.1/go.mod h1:wHxEcudfqmLYa8iTfL+OuZPbBZkmvliBWKIezN3kD9Y=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=

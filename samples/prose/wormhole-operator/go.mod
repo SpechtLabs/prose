@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
-	github.com/sierrasoftworks/humane-errors-go v0.0.0-20260428132744-178d2d0aad2c
+	github.com/sierrasoftworks/humane-errors-go v0.0.0-20260820132314-9a466da5e0f0
 	github.com/spechtlabs/prose v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.44.0

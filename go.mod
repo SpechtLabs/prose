@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.36.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
-	github.com/sierrasoftworks/humane-errors-go v0.0.0-20260428132744-178d2d0aad2c
+	github.com/sierrasoftworks/humane-errors-go v0.0.0-20260820132314-9a466da5e0f0
 	go.opentelemetry.io/otel v1.33.0
 	go.opentelemetry.io/otel/sdk v1.33.0
 	go.opentelemetry.io/otel/trace v1.33.0
