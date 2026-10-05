@@ -78,14 +78,14 @@ func itReq(name string) reconcile.Request {
 var _ = ginkgo.Describe("integration against a real apiserver", func() {
 	ginkgo.It("applies an owned object with a controller reference, idempotently", func() {
 		ctx := context.Background()
-		owner := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "ssa-owner", Namespace: "default"}}
+		owner := &corev1.ConfigMap{Name: "ssa-owner", Namespace: "default"}
 		Expect(itClient.Create(ctx, owner)).To(Succeed())
 
 		applyChild := func(rctx *Context[*corev1.ConfigMap]) (Outcome, error) {
 			child := &corev1.ConfigMap{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
-				ObjectMeta: metav1.ObjectMeta{Name: "ssa-child", Namespace: "default"},
-				Data:       map[string]string{"key": "value"},
+				APIVersion: "v1", Kind: "ConfigMap",
+				Name: "ssa-child", Namespace: "default",
+				Data: map[string]string{"key": "value"},
 			}
 			if err := rctx.Apply(child); err != nil {
 				return Requeue, err
@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("integration against a real apiserver", func() {
 
 	ginkgo.It("adds a finalizer, then runs the Finalize group and removes it on delete", func() {
 		ctx := context.Background()
-		obj := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "fin", Namespace: "default"}}
+		obj := &corev1.ConfigMap{Name: "fin", Namespace: "default"}
 		Expect(itClient.Create(ctx, obj)).To(Succeed())
 
 		var finalized bool

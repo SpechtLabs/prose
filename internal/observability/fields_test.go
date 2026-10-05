@@ -49,7 +49,7 @@ var _ = DescribeTable("ToAttr maps Go values onto span attributes",
 	func(key string, value any, wantKey, wantStr string) {
 		kv := ToAttr(key, value)
 		Expect(string(kv.Key)).To(Equal(wantKey))
-		Expect(kv.Value.Emit()).To(Equal(wantStr))
+		Expect(kv.Value.String()).To(Equal(wantStr))
 	},
 	Entry("string", "s", "hello", "s", "hello"),
 	Entry("bool", "b", true, "b", "true"),

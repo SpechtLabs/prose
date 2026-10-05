@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("Context.Apply", func() {
 		scheme := runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		owner := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: "owner", Namespace: "ns", UID: "uid-123"},
+			Name: "owner", Namespace: "ns", UID: "uid-123",
 		}
 
 		var (
@@ -50,8 +50,8 @@ var _ = ginkgo.Describe("Context.Apply", func() {
 		rctx := newContext[*corev1.ConfigMap](context.Background(), capturing, scheme, observability.NewSink(), "configmap", "prose", owner)
 
 		dep := &appsv1.Deployment{
-			TypeMeta:   metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
-			ObjectMeta: metav1.ObjectMeta{Name: "d", Namespace: "ns"},
+			APIVersion: "apps/v1", Kind: "Deployment",
+			Name: "d", Namespace: "ns",
 		}
 		Expect(rctx.Apply(dep)).To(Succeed())
 

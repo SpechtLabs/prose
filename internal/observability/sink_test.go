@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -45,7 +44,7 @@ var _ = Describe("Sink", func() {
 	Describe("Event", func() {
 		It("no-ops without a recorder", func() {
 			s := NewSink()
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 			Expect(func() {
 				s.Event(pod, corev1.EventTypeNormal, "Reason", "msg %d", 1)
 			}).NotTo(Panic())
@@ -54,7 +53,7 @@ var _ = Describe("Sink", func() {
 		It("dispatches a formatted event to the recorder", func() {
 			rec := record.NewFakeRecorder(10)
 			s := NewSink(Recorder(rec))
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 
 			s.Event(pod, corev1.EventTypeNormal, "Scaled", "scaled to %d", 3)
 

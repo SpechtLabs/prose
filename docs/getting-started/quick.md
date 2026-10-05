@@ -9,7 +9,7 @@ This is a five-minute tutorial. You'll take an empty `SetupWithManager` and turn
 Assume you've scaffolded a `Memcached` CRD with `Spec.Size` (replica count), `Spec.Image`, and `Status.Nodes` (a `[]string` of pod names). The CRD has its status subresource enabled. Now you'll write the controller.
 
 ::: note Before you start
-Have [the prerequisites](/getting-started/prerequisites) in place: Go 1.25+, `go get github.com/spechtlabs/prose`, and a working manager.
+Have [the prerequisites](/getting-started/prerequisites) in place: Go 1.27+, `go get github.com/spechtlabs/prose`, and a working manager.
 :::
 
 ## 1. Replace the reconciler with a pipeline

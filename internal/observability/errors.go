@@ -20,8 +20,7 @@ func FoldError(f *Fields, basePath string, err error) {
 		return
 	}
 
-	var h humane.Error
-	if errors.As(err, &h) {
+	if h, ok := errors.AsType[humane.Error](err); ok {
 		f.Set(basePath+".error", h.Error())
 		if c := h.Cause(); c != nil {
 			f.Set(basePath+".cause", c.Error())
@@ -44,8 +43,7 @@ func FoldError(f *Fields, basePath string, err error) {
 // errors.Is), and any humane advice is lifted onto the frame so it survives at the
 // controller-runtime boundary.
 func FrameError(stepName string, err error) humane.Error {
-	var h humane.Error
-	if errors.As(err, &h) {
+	if h, ok := errors.AsType[humane.Error](err); ok {
 		return humane.Wrap(err, stepName, h.Advice()...)
 	}
 	return humane.Wrap(err, stepName)

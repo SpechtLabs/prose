@@ -7,7 +7,6 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/spechtlabs/prose/internal/observability"
@@ -39,7 +38,7 @@ var _ = ginkgo.Describe("Context", func() {
 	ginkgo.Describe("accessors", func() {
 		ginkgo.It("expose the object, context, and client", func() {
 			ctx := context.Background()
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 			rctx := newContext[*corev1.Pod](ctx, nil, nil, observability.NewSink(), "pod", "prose", pod)
 
 			Expect(rctx.Object()).To(Equal(pod))
@@ -51,7 +50,7 @@ var _ = ginkgo.Describe("Context", func() {
 	ginkgo.Describe("Event", func() {
 		ginkgo.It("dispatches a formatted event when a recorder is configured", func() {
 			rec := record.NewFakeRecorder(10)
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 			rctx := newContext[*corev1.Pod](context.Background(), nil, nil, observability.NewSink(observability.Recorder(rec)), "pod", "prose", pod)
 
 			rctx.Event(corev1.EventTypeNormal, "NodesUpdated", "tracking %d pods", 4)
