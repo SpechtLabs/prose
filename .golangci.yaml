@@ -151,6 +151,16 @@ linters:
         text: 'SA1019: \(sigs\.k8s\.io/controller-runtime\.Result\)\.Requeue is deprecated'
         path: ^internal/pipeline/(outcome|outcome_test|runner_test)\.go$
 
+      # rctx.Apply takes any client.Object and patches it with the client.Apply
+      # patch type, which writes the server's answer back into the object.
+      # Client.Apply, its replacement, takes an apply configuration and leaves
+      # the object alone, so moving to it changes what steps see after Apply;
+      # that is a change of its own.
+      - linters:
+          - staticcheck
+        text: 'SA1019: sigs\.k8s\.io/controller-runtime/pkg/client\.Apply is deprecated'
+        path: ^internal/pipeline/context\.go$
+
     paths:
       - third_party$
       - builtin$

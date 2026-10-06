@@ -8,7 +8,6 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/spechtlabs/prose/internal/observability"
 )
@@ -16,7 +15,7 @@ import (
 // testContext builds a Context with a no-op sink and a Pod object, for exercising
 // the executor without a manager or client.
 func testContext() *Context[*corev1.Pod] {
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "widget", Namespace: "team-a"}}
+	pod := &corev1.Pod{Name: "widget", Namespace: "team-a"}
 	return newContext[*corev1.Pod](context.Background(), nil, nil, observability.NewSink(), "pod", "prose", pod)
 }
 
@@ -77,7 +76,7 @@ var _ = ginkgo.Describe("the executor", func() {
 			clock = clock.Add(time.Second)
 			return clock
 		}
-		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "widget", Namespace: "team-a"}}
+		pod := &corev1.Pod{Name: "widget", Namespace: "team-a"}
 		rctx = newContext[*corev1.Pod](context.Background(), nil, nil,
 			observability.NewSink(observability.Clock(tick)), "pod", "prose", pod)
 

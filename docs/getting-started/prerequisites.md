@@ -8,7 +8,7 @@ createTime: 2026/06/03 12:00:00
 
 ## What you need
 
-**Go 1.25 or newer.** `prose` uses generics throughout (`For[T]`, `Group[T]`, `Context[T]`), and the public API is built around them. Check your toolchain:
+**Go 1.27 or newer.** `prose` uses generics throughout (`For[T]`, `Group[T]`, `Context[T]`), and the public API is built around them. Check your toolchain:
 
 ```shell
 go version
@@ -47,5 +47,5 @@ import humane "github.com/sierrasoftworks/humane-errors-go"
 The Gomega adapter behind `prose.Match` pulls in [Gomega](https://github.com/onsi/gomega) only when you write a matcher-based `When` gate. You don't need it for a first pipeline.
 
 ::: tip Ready?
-Once `go version` reports 1.25+, `go get` succeeded, and your CRD has its status subresource, you have everything. Head to [Your First Reconciler](/getting-started/quick).
+Once `go version` reports 1.27+, `go get` succeeded, and your CRD has its status subresource, you have everything. Head to [Your First Reconciler](/getting-started/quick).
 :::

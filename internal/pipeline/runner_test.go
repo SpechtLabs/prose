@@ -9,9 +9,7 @@ import (
 	humane "github.com/sierrasoftworks/humane-errors-go"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,11 +56,11 @@ func newTestRunner(root, finalize *node[*corev1.ConfigMap], objs ...client.Objec
 }
 
 func reqFor(ns, name string) reconcile.Request {
-	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: name}}
+	return reconcile.Request{Namespace: ns, Name: name}
 }
 
 func cm(name string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"}}
+	return &corev1.ConfigMap{Name: name, Namespace: "ns"}
 }
 
 var _ = ginkgo.Describe("the runner", func() {

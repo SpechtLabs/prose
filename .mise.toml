@@ -54,7 +54,7 @@ operator-sdk = "1.42.3"
 
 [vars]
 # The Kubernetes version envtest runs: the minor of k8s.io/api in go.mod.
-envtest_k8s_version = "1.33.0"
+envtest_k8s_version = "1.37.0"
 
 [tasks.build]
 description = "Build every package"

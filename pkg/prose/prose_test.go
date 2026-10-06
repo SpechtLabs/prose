@@ -4,11 +4,10 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = ginkgo.Describe("Match", func() {
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "widget"}}
+	pod := &corev1.Pod{Name: "widget"}
 
 	ginkgo.It("is true when the matcher passes", func() {
 		Expect(Match[*corev1.Pod](Not(BeNil()))(pod)).To(BeTrue())
