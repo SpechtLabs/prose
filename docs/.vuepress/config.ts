@@ -26,7 +26,8 @@ export default defineUserConfig({
     viteOptions: {
       build: {
         // lightningcss (the default rolldown-vite CSS minifier) chokes under bun's
-        // module layout; fall back to esbuild for CSS minification.
+        // module layout; fall back to esbuild for CSS minification. esbuild is
+        // only an optional peer of vite, so package.json lists it directly.
         cssMinify: "esbuild",
       },
     },
