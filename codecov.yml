@@ -1,0 +1,17 @@
+# Codecov fails a pull request only when coverage falls below 85%, for the
+# whole project or for the lines the pull request changes. Without this,
+# both targets default to the base branch's own coverage, so a change with
+# 95% patch coverage is flagged whenever main happens to sit higher.
+coverage:
+  status:
+    project:
+      default:
+        target: 85%
+    patch:
+      default:
+        target: 85%
+
+# The sample operators ship as examples, and their tests run in samples.yaml
+# without uploading coverage.
+ignore:
+  - "samples/**"

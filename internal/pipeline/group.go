@@ -1,6 +1,11 @@
 package pipeline
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"fmt"
+
+	humane "github.com/sierrasoftworks/humane-errors-go"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // StepFunc is one named, observable unit of reconcile work. It receives the typed
 // reconcile context and returns an outcome and an error. It never logs, traces, or
@@ -24,10 +29,10 @@ type node[T client.Object] struct {
 	fn StepFunc[T]
 
 	// group
-	isGroup  bool
 	pred     Predicate[T] // nil for Describe/Context; set for When
-	skip     bool         // When(...).Skip(): stop the whole reconcile when pred holds
 	children []*node[T]
+	isGroup  bool
+	skip     bool // When(...).Skip(): stop the whole reconcile when pred holds
 }
 
 // Group is the façade handed to a Describe/Context/When closure. It is a thin
@@ -35,6 +40,8 @@ type node[T client.Object] struct {
 // vocabulary while keeping the tree type unexported.
 type Group[T client.Object] struct {
 	n *node[T]
+	// errs collects the Builder's setup errors, which Complete returns.
+	errs *[]error
 }
 
 // Step adds a named step to the group.
@@ -47,7 +54,7 @@ func (g *Group[T]) Step(name string, fn StepFunc[T]) *Group[T] {
 // structures spans (a parent span over child spans) and scopes gating.
 func (g *Group[T]) Describe(name string, build func(*Group[T])) *Group[T] {
 	child := &node[T]{name: name, isGroup: true}
-	build(&Group[T]{n: child})
+	build(&Group[T]{n: child, errs: g.errs})
 	g.n.children = append(g.n.children, child)
 	return g
 }
@@ -60,15 +67,10 @@ func (g *Group[T]) Context(name string, build func(*Group[T])) *Group[T] {
 
 // When adds a group gated by a predicate. With a build closure the gated group is
 // filled inline; without one, call .Skip() on the returned gate to make the
-// predicate stop the whole reconcile (the pause/finalizing/deletion gate).
+// predicate stop the whole reconcile (the pause/finalizing/deletion gate). More
+// than one closure is a setup error, which Complete returns.
 func (g *Group[T]) When(label string, pred Predicate[T], build ...func(*Group[T])) *groupGate[T] {
-	if len(build) > 1 {
-		panic("prose: When accepts at most one group closure")
-	}
-	child := &node[T]{name: label, isGroup: true, pred: pred}
-	for _, fn := range build {
-		fn(&Group[T]{n: child})
-	}
+	child := gatedGroup(label, pred, build, g.errs)
 	g.n.children = append(g.n.children, child)
 	return &groupGate[T]{Group: g, n: child}
 }
@@ -85,4 +87,21 @@ type groupGate[T client.Object] struct {
 func (gg *groupGate[T]) Skip() *Group[T] {
 	gg.n.skip = true
 	return gg.Group
+}
+
+// gatedGroup builds the group node behind When. A When takes its group as an
+// optional closure, so the signature can't rule out a second one; that is
+// recorded in errs for Complete to return, and none of the closures run.
+func gatedGroup[T client.Object](label string, pred Predicate[T], build []func(*Group[T]), errs *[]error) *node[T] {
+	child := &node[T]{name: label, isGroup: true, pred: pred}
+	if len(build) > 1 {
+		*errs = append(*errs, humane.New(
+			fmt.Sprintf("prose: When(%q) got %d group closures but accepts at most one", label, len(build)),
+			"put every step of the gated group into a single closure"))
+		return child
+	}
+	for _, fn := range build {
+		fn(&Group[T]{n: child, errs: errs})
+	}
+	return child
 }

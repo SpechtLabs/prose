@@ -2,22 +2,31 @@ config:
   # Default state for all rules
   default: true
 
+  # MD010: Go snippets are gofmt-formatted and indent with tabs.
+  MD010:
+    code_blocks: false
+
   # MD013: Disable line length rule
   MD013: false
   MD024: false
   MD038: false
   MD060: false
 
-# Include all Markdown files in the project
-globs:
-  - "**/*.md"
+  # MD014: The `terminal` container parses a leading `$ ` to tell a command
+  # apart from its output, so command-only blocks inside one are deliberate.
+  MD014: false
 
-# Ignore node_modules directory and other common patterns
+  # MD036: Allow bold labels used as pseudo-headings.
+  MD036: false
+
+  # MD046: The `terminal` container wraps fenced blocks in indented context,
+  # which trips the consistency check.
+  MD046: false
+
+# The documentation website is what this config governs, and the workflow's
+# markdownlint job runs the same glob.
+globs:
+  - "docs/**/*.md"
+
 ignores:
   - "docs/node_modules/**"
-  - ".git/**"
-  - "vendor/**"
-  - CHANGELOG.md
-  # Example operators are largely operator-sdk-generated; skip them here the same
-  # way .yamllint.yaml skips samples/.
-  - "samples/**"

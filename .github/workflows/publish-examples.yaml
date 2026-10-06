@@ -2,16 +2,23 @@ name: Publish Example Images
 
 # Builds the prose example operators and publishes each to its own GHCR package
 # (ghcr.io/<owner>/prose/<example>). The examples depend on the framework via a
-# local `replace`, so images are built from the repo root with samples/prose/Dockerfile.
-# Pull requests build (and exercise the multi-arch cross-compile) but do not push.
+# local `replace`, so images are built from the repo root with
+# samples/prose/Dockerfile. Pushes to main publish `main`, `latest` and the
+# commit SHA; release.yaml calls this with the release tag, which publishes the
+# version. Pull requests build (and exercise the multi-arch cross-compile) but
+# do not push.
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build and publish as a version (e.g. v0.1.0)
+        required: true
+        type: string
   push:
     branches:
       - main
-    tags:
-      - "v*"
     paths:
       - "pkg/**"
       - "internal/**"
@@ -20,9 +27,6 @@ on:
       - "samples/prose/**"
       - ".github/workflows/publish-examples.yaml"
   pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
     paths:
       - "pkg/**"
       - "internal/**"
@@ -35,9 +39,11 @@ permissions:
   contents: read
   packages: write
 
+# github.workflow is the caller's name when release.yaml calls this, so a
+# release never cancels, or is cancelled by, the push run for the same commit.
 concurrency:
-  group: publish-examples-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-images-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   image:
@@ -52,19 +58,20 @@ jobs:
           - wormhole-operator
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
+      # The Dockerfile cross-compiles on the build platform and the final stage
+      # only copies the binary, so no QEMU is needed for linux/arm64.
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      # Push only for real refs (main / tags). PRs from forks can't push and
+      # Push only for real refs (main / releases). PRs from forks can't push and
       # GITHUB_TOKEN is read-only there, so PRs build-only to validate the image.
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -72,20 +79,20 @@ jobs:
 
       - name: Image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           # metadata-action lowercases the image name (SpechtLabs -> spechtlabs).
           images: ghcr.io/${{ github.repository_owner }}/prose/${{ matrix.sample }}
           tags: |
-            type=ref,event=branch
+            type=ref,event=branch,enable=${{ inputs.tag == '' }}
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=sha,format=long
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ inputs.tag == '' && github.ref == 'refs/heads/main' }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: samples/prose/Dockerfile

@@ -2,7 +2,7 @@
 
 Kubernetes operators that read like prose.
 
-[![CI Build & Test](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml/badge.svg)](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml)
+[![CI](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml/badge.svg)](https://github.com/SpechtLabs/prose/actions/workflows/ci.yaml)
 [![Documentation](https://github.com/SpechtLabs/prose/actions/workflows/docs-website.yaml/badge.svg)](https://github.com/SpechtLabs/prose/actions/workflows/docs-website.yaml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/spechtlabs/prose/pkg/prose.svg)](https://pkg.go.dev/github.com/spechtlabs/prose/pkg/prose)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spechtlabs/prose)](https://goreportcard.com/report/github.com/spechtlabs/prose)

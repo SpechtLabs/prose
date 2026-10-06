@@ -1,0 +1,65 @@
+name: Samples
+
+# The example operators under samples/prose. Each resolves prose from the
+# working tree through a replace directive, so this catches a framework change
+# that would break a real operator: the controller tests against envtest, then
+# the operator image deployed into a Kind cluster. ci.yaml calls it for pull
+# requests, and it runs on its own from the Actions tab.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # See go.yaml.
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+  # renovate: datasource=github-releases depName=jdx/mise extractVersion=^v(?<version>.+)$
+  MISE_VERSION: 2026.10.2
+  # The same list as go.yaml's, which its lint job checks.
+  MISE_TOOLS: go golangci-lint yamllint actionlint shellcheck setup-envtest go:sigs.k8s.io/controller-tools/cmd/controller-gen kustomize kind kubectl
+
+jobs:
+  sample:
+    name: Sample (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        sample:
+          - memcached-operator
+          - wormhole-operator
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: ${{ env.MISE_VERSION }}
+          install_args: ${{ env.MISE_TOOLS }}
+
+      - name: Cache Go modules and build output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-sample-${{ matrix.sample }}-${{ runner.os }}-${{ hashFiles(format('samples/prose/{0}/go.sum', matrix.sample), 'go.sum') }}
+          restore-keys: go-sample-${{ matrix.sample }}-${{ runner.os }}-
+
+      # make test regenerates the CRDs, RBAC and deep copies before it tests.
+      - name: Run the controller tests (envtest)
+        run: mise run samples-test ${{ matrix.sample }}
+
+      - name: Check the generated code and manifests are committed
+        run: |
+          if ! git diff --exit-code -- "samples/prose/${{ matrix.sample }}"; then
+            echo "::error::make generate manifests changed samples/prose/${{ matrix.sample }}; run 'mise run samples-test ${{ matrix.sample }}' and commit the result"
+            exit 1
+          fi
+
+      - name: Run the end-to-end tests (Kind)
+        run: mise run samples-e2e ${{ matrix.sample }}

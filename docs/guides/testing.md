@@ -144,7 +144,7 @@ $ mise run test-envtest
 `test-envtest` resolves `KUBEBUILDER_ASSETS` to the downloaded binaries and runs `go test -tags envtest ./...`. For a sample operator scaffolded by Kubebuilder, the equivalent is its `make test` target, which downloads the same `setup-envtest` binaries and points `KUBEBUILDER_ASSETS` at them before running the suite. The suite locates the binaries itself when you run from an IDE, falling back to `bin/k8s` if `KUBEBUILDER_ASSETS` isn't set, so a green run from the command line and a green run from your editor exercise the same control plane.
 
 ::: warning Pin the Kubernetes version
-envtest behavior tracks the API server version it downloads. The framework pins `1.33.0` in `mise.toml`; pin yours too, so a contributor on a different machine and CI are testing against the same API server rather than whatever `setup-envtest` happened to fetch last.
+envtest behavior tracks the API server version it downloads. The framework pins `1.37.0` in `.mise.toml`; pin yours too, so a contributor on a different machine and CI are testing against the same API server rather than whatever `setup-envtest` happened to fetch last.
 :::
 
 ## Where to go next

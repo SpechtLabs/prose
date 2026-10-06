@@ -11,7 +11,7 @@ import (
 
 var _ = ginkgo.DescribeTable("IgnoreStatusOnlyUpdates keeps real changes and drops status-only churn",
 	func(mutate func(oldObj, newObj *corev1.ConfigMap), wantReconcile bool) {
-		oldObj := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "x", Generation: 1}}
+		oldObj := &corev1.ConfigMap{Name: "x", Generation: 1}
 		newObj := oldObj.DeepCopy()
 		mutate(oldObj, newObj)
 

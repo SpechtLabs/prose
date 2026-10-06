@@ -9,9 +9,7 @@ import (
 	humane "github.com/sierrasoftworks/humane-errors-go"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,11 +56,11 @@ func newTestRunner(root, finalize *node[*corev1.ConfigMap], objs ...client.Objec
 }
 
 func reqFor(ns, name string) reconcile.Request {
-	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: name}}
+	return reconcile.Request{Namespace: ns, Name: name}
 }
 
 func cm(name string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"}}
+	return &corev1.ConfigMap{Name: name, Namespace: "ns"}
 }
 
 var _ = ginkgo.Describe("the runner", func() {
@@ -83,7 +81,7 @@ var _ = ginkgo.Describe("the runner", func() {
 		Expect(res).To(Equal(ctrl.Result{}))
 		Expect(log).To(Equal([]string{"status"}))
 
-		line, ok := rec.line("reconcile")
+		line, ok := rec.wideEvent()
 		Expect(ok).To(BeTrue(), "expected exactly one wide event named 'reconcile'")
 		Expect(line.value("controller")).To(Equal("configmap"))
 		Expect(line.value("name")).To(Equal("widget"))
@@ -100,7 +98,7 @@ var _ = ginkgo.Describe("the runner", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal(ctrl.Result{}))
-		_, ok := rec.line("reconcile")
+		_, ok := rec.wideEvent()
 		Expect(ok).To(BeFalse(), "a vanished object should not emit a wide event")
 	})
 
@@ -131,7 +129,7 @@ var _ = ginkgo.Describe("the runner", func() {
 
 		Expect(err).To(MatchError(boom))
 		Expect(log).To(Equal([]string{"first", "second"}))
-		line, ok := rec.line("reconcile")
+		line, ok := rec.wideEvent()
 		Expect(ok).To(BeTrue(), "error path must still emit the wide event")
 		Expect(line.value("result")).To(Equal("error"))
 		Expect(line.value("second.error")).To(Equal("list pods"))
@@ -213,6 +211,54 @@ var _ = ginkgo.Describe("the runner", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "object should be gone after finalizer removal")
 	})
 
+	ginkgo.DescribeTable("handles a finalizer write that fails",
+		func(deleting bool, updateErr error, wantErr string, wantLog []string) {
+			var log []string
+			root := &node[*corev1.ConfigMap]{isGroup: true, children: []*node[*corev1.ConfigMap]{
+				cmStep(&log, "converge", Continue, nil),
+			}}
+			finalize := &node[*corev1.ConfigMap]{name: "teardown", isGroup: true, children: []*node[*corev1.ConfigMap]{
+				cmStep(&log, "release", Continue, nil),
+			}}
+			obj := cm("widget")
+			if deleting {
+				obj.Finalizers = []string{testFinalizer}
+			}
+			r, _, fc := newTestRunner(root, finalize, obj)
+			if deleting {
+				Expect(fc.Delete(context.Background(), obj)).To(Succeed())
+			}
+			r.client = interceptor.NewClient(fc.(client.WithWatch), interceptor.Funcs{
+				Update: func(context.Context, client.WithWatch, client.Object, ...client.UpdateOption) error {
+					return updateErr
+				},
+			})
+
+			res, err := r.Reconcile(context.Background(), reqFor("ns", "widget"))
+
+			Expect(log).To(Equal(wantLog))
+			if wantErr == "" {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res).To(Equal(ctrl.Result{}))
+				return
+			}
+			Expect(err).To(MatchError(updateErr))
+			Expect(err.Error()).To(Equal("finalizer"))
+			var h humane.Error
+			Expect(errors.As(err, &h)).To(BeTrue())
+			Expect(h.Cause().Error()).To(HavePrefix(wantErr))
+			Expect(h.Advice()).To(ContainElement("verify the controller has RBAC to update this resource"))
+		},
+		ginkgo.Entry("adding it: the pipeline doesn't run, and the error says why",
+			false, errors.New("forbidden"), "add finalizer", nil),
+		ginkgo.Entry("removing it: the teardown ran, and the error says why",
+			true, errors.New("forbidden"), "remove finalizer", []string{"release"}),
+		ginkgo.Entry("adding it during shutdown: aborted quietly",
+			false, context.Canceled, "", nil),
+		ginkgo.Entry("removing it during shutdown: aborted quietly",
+			true, context.Canceled, "", []string{"release"}),
+	)
+
 	ginkgo.It("reports a shutdown-canceled step as aborted, not an error", func() {
 		// Reproduces a Ctrl-C during an in-flight rctx.Apply: the step returns an
 		// error wrapping context.Canceled. The runner must not surface it to
@@ -233,7 +279,7 @@ var _ = ginkgo.Describe("the runner", func() {
 		Expect(ran).To(BeTrue())
 		Expect(err).NotTo(HaveOccurred(), "a shutdown-canceled reconcile must not surface an error")
 		Expect(res).To(Equal(ctrl.Result{}))
-		line, ok := rec.line("reconcile")
+		line, ok := rec.wideEvent()
 		Expect(ok).To(BeTrue())
 		Expect(line.value("result")).To(Equal("aborted"))
 		Expect(line.value("open-tunnel.outcome")).To(Equal("aborted"))
@@ -269,7 +315,7 @@ var _ = ginkgo.Describe("the runner", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).To(Equal(ctrl.Result{}))
-		_, ok := rec.line("reconcile")
+		_, ok := rec.wideEvent()
 		Expect(ok).To(BeFalse(), "a canceled fetch has no transaction to record")
 	})
 })

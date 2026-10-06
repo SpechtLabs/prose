@@ -1,7 +1,7 @@
 // Package prose is a thin DSL over controller-runtime for building Kubernetes
 // operators as a linear, observable sequence of named steps.
 //
-// A reconcile is modelled as one observable transaction: it has a beginning
+// A reconcile is modeled as one observable transaction: it has a beginning
 // (fetch the object), a body (an ordered tree of steps and groups), and an end
 // (emit exactly one wide event describing everything that happened). Steps
 // describe what happened by setting fields and returning outcomes; the framework

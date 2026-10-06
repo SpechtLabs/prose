@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -43,8 +42,8 @@ type Context[T client.Object] struct {
 }
 
 type deferredCleanup struct {
-	path string
 	fn   func() error
+	path string
 }
 
 func newContext[T client.Object](ctx context.Context, c client.Client, scheme *runtime.Scheme, sink *observability.Sink, controller, fieldOwner string, obj T) *Context[T] {
@@ -130,9 +129,9 @@ func (rctx *Context[T]) runErrorCleanups() {
 }
 
 func runCleanupStack(f *observability.Fields, stack []deferredCleanup) {
-	for i := len(stack) - 1; i >= 0; i-- {
-		if err := stack[i].fn(); err != nil {
-			f.Set(observability.Dotted(stack[i].path, "cleanup", "error"), err.Error())
+	for _, c := range slices.Backward(stack) {
+		if err := c.fn(); err != nil {
+			f.Set(observability.Dotted(c.path, "cleanup", "error"), err.Error())
 		}
 	}
 }
@@ -195,9 +194,9 @@ func (rctx *Context[T]) runStep(n *node[T]) (Outcome, error) {
 	prevCtx, prevSpan, prevStep := rctx.ctx, rctx.span, rctx.curStepPath
 	rctx.ctx, rctx.span, rctx.curStepPath = ctx, span, stepPath
 
-	start := time.Now()
+	start := rctx.sink.Now()
 	out, err := n.fn(rctx)
-	dur := time.Since(start)
+	dur := rctx.sink.Now().Sub(start)
 
 	rctx.fields.Set(stepPath+".duration", dur.String())
 

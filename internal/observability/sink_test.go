@@ -1,13 +1,14 @@
 package observability
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/go-logr/logr"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -31,12 +32,19 @@ var _ = Describe("Sink", func() {
 			Expect(s.tracer).To(Equal(tr))
 			Expect(s.recorder).To(Equal(rec))
 		})
+
+		It("replace the clock, and keep the wall clock when given none", func() {
+			fixed := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			Expect(NewSink(Clock(func() time.Time { return fixed })).Now()).To(Equal(fixed))
+			Expect(NewSink(Clock(nil)).Now()).To(BeTemporally("~", time.Now(), time.Minute))
+		})
 	})
 
 	Describe("Event", func() {
 		It("no-ops without a recorder", func() {
 			s := NewSink()
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 			Expect(func() {
 				s.Event(pod, corev1.EventTypeNormal, "Reason", "msg %d", 1)
 			}).NotTo(Panic())
@@ -45,7 +53,7 @@ var _ = Describe("Sink", func() {
 		It("dispatches a formatted event to the recorder", func() {
 			rec := record.NewFakeRecorder(10)
 			s := NewSink(Recorder(rec))
-			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+			pod := &corev1.Pod{Name: "foo"}
 
 			s.Event(pod, corev1.EventTypeNormal, "Scaled", "scaled to %d", 3)
 

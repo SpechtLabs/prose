@@ -17,16 +17,21 @@ import (
 // events are opt-in per step and there is no universal no-op recorder.
 type Sink struct {
 	tracer   trace.Tracer
-	logger   logr.Logger
 	recorder record.EventRecorder
 	metrics  *StepMetrics
+	// now is the clock step and reconcile durations are measured with.
+	now    func() time.Time
+	logger logr.Logger
 }
 
+// NewSink returns a sink with no-op tracing and logging, no event recorder and
+// the process-wide step histogram, configured further by opts.
 func NewSink(opts ...Option) *Sink {
 	s := &Sink{
 		tracer:  tracenoop.NewTracerProvider().Tracer("prose"),
 		logger:  logr.Discard(),
 		metrics: GlobalStepMetrics(),
+		now:     time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -40,6 +45,9 @@ func (s *Sink) Tracer() trace.Tracer { return s.tracer }
 // Logger returns the configured wide-event logger (logr.Discard if WideEvents was
 // not supplied).
 func (s *Sink) Logger() logr.Logger { return s.logger }
+
+// Now reads the sink's clock (the wall clock unless Clock replaced it).
+func (s *Sink) Now() time.Time { return s.now() }
 
 // Observe records a step's duration into the per-step histogram.
 func (s *Sink) Observe(controller, step, outcome string, d time.Duration) {
