@@ -29,9 +29,7 @@
   "homepage": "https://github.com/spechtlabs/prose#readme",
   "devDependencies": {
     "@vuepress/bundler-vite": "2.0.0-rc.30",
-    "@vuepress/plugin-register-components": "2.0.0-rc.130",
     "http-server": "^14.1.1",
-    "markdown-it-container": "^4.0.0",
     "sass-embedded": "^1.93.3",
     "typescript": "^5.9.3",
     "vue": "^3.5.25",
@@ -39,11 +37,11 @@
     "vuepress-theme-plume": "1.0.0-rc.201"
   },
   "dependencies": {
+    "@spechtlabs/docs-kit": "github:SpechtLabs/docs-kit#v0.1.0",
     "@vue/component-compiler-utils": "^3.3.0",
     "lru-cache": "^11.2.2",
     "markdown-it-emoji": "^3.0.0",
     "mermaid": "^11.12.1",
-    "swagger-ui-dist": "^5.30.3",
     "vue-template-compiler": "^2.7.16"
   },
   "optionalDependencies": {
