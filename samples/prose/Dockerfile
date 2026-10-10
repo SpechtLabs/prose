@@ -11,7 +11,7 @@
 # The builder stage pins to the build platform and cross-compiles via TARGETOS/
 # TARGETARCH, so multi-arch images build natively (no QEMU) — the final stage only
 # copies a static binary.
-FROM --platform=$BUILDPLATFORM golang:1.27.1 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2 AS builder
 ARG EXAMPLE
 ARG TARGETOS
 ARG TARGETARCH
