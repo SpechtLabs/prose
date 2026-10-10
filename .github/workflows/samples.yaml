@@ -16,7 +16,7 @@ env:
   # See go.yaml.
   MISE_TASK_RUN_AUTO_INSTALL: "false"
   # renovate: datasource=github-releases depName=jdx/mise extractVersion=^v(?<version>.+)$
-  MISE_VERSION: 2026.10.5
+  MISE_VERSION: 2026.10.6
   # The same list as go.yaml's, which its lint job checks.
   MISE_TOOLS: go golangci-lint yamllint actionlint shellcheck setup-envtest go:sigs.k8s.io/controller-tools/cmd/controller-gen kustomize kind kubectl
 
