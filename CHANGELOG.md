@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/SpechtLabs/prose/compare/v0.0.2...v0.0.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* **deps:** update go modules ([#25](https://github.com/SpechtLabs/prose/issues/25)) ([8194c13](https://github.com/SpechtLabs/prose/commit/8194c132d9c53f11761308b6186d9251c2495639))
+
 ## [0.0.2](https://github.com/SpechtLabs/prose/compare/v0.0.1...v0.0.2) (2026-10-06)
 
 
