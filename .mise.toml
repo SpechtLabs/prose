@@ -40,7 +40,7 @@ pinact = "5.0.0"
 # markdownlint-cli2 is an npm package, which mise installs with the node below.
 bun = "1.4.3"
 node = "24.22.1"
-markdownlint-cli2 = "0.23.3"
+markdownlint-cli2 = "0.24.0"
 
 # The envtest control plane for the integration tests (see test-envtest) and
 # the sample operators' Makefiles, which take every tool from PATH.
