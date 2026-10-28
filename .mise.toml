@@ -48,7 +48,7 @@ setup-envtest = "0.25.2"
 "go:sigs.k8s.io/controller-tools/cmd/controller-gen" = "0.22.0"
 kustomize = "5.8.3"
 kind = "0.33.0"
-kubectl = "1.37.1"
+kubectl = "1.37.2"
 # Bundles and catalogs for the samples (`make bundle`); CI doesn't build them.
 operator-sdk = "1.42.3"
 
