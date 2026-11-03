@@ -5,7 +5,7 @@ go 1.27
 toolchain go1.27.3
 
 require (
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/sierrasoftworks/humane-errors-go v0.0.0-20260820132314-9a466da5e0f0
 	github.com/spechtlabs/prose v0.0.0-00010101000000-000000000000
