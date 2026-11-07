@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.4](https://github.com/SpechtLabs/prose/compare/v0.0.3...v0.0.4) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** update go modules to v0.37.2 ([#101](https://github.com/SpechtLabs/prose/issues/101)) ([f395d16](https://github.com/SpechtLabs/prose/commit/f395d1630052ad74eab28cf463fdebbef4ed995d))
+* **deps:** update module github.com/onsi/ginkgo/v2 to v2.34.0 ([#118](https://github.com/SpechtLabs/prose/issues/118)) ([a2649c6](https://github.com/SpechtLabs/prose/commit/a2649c6bbe26a11dba966776f5be5e39f705afda))
+
 ## [0.0.3](https://github.com/SpechtLabs/prose/compare/v0.0.2...v0.0.3) (2026-10-12)
 
 
