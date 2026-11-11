@@ -2,7 +2,7 @@ module example.com/prose/wormhole-operator
 
 go 1.27
 
-toolchain go1.27.3
+toolchain go1.27.4
 
 require (
 	github.com/onsi/ginkgo/v2 v2.34.0
